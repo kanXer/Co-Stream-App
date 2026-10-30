@@ -1,0 +1,10 @@
+.gradle/
+.kotlin/
+build/
+app/build/
+local.properties
+app/co-stream.jks
+app/src/main/assets/creds.json
+app/creds.json
+google-services.json
+app/google-services.json
