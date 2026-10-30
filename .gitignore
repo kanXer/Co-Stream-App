@@ -3,8 +3,23 @@
 build/
 app/build/
 local.properties
+
+# Keystore & signing files
+*.jks
+*.keystore
 app/co-stream.jks
-app/src/main/assets/creds.json
-app/creds.json
+
+# Google services & credentials
 google-services.json
 app/google-services.json
+**/google-services.json
+creds.json
+*/creds.json
+**/creds.json
+*credentials*.json
+client_secret*.json
+
+# Keep example credentials tracked
+!creds.example.json
+!*/creds.example.json
+

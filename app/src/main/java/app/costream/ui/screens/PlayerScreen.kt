@@ -11,6 +11,7 @@ import android.net.Uri
 import android.provider.Settings
 import android.util.Rational
 import android.view.ViewGroup
+import android.view.WindowManager
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -23,6 +24,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -38,6 +40,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -53,7 +56,11 @@ import androidx.compose.material.icons.rounded.Brightness6
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Forward10
+import androidx.compose.material.icons.rounded.Fullscreen
+import androidx.compose.material.icons.rounded.FullscreenExit
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.Fullscreen
+import androidx.compose.material.icons.rounded.FullscreenExit
 import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PictureInPictureAlt
@@ -61,6 +68,7 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Replay
 import androidx.compose.material.icons.rounded.Replay10
 import androidx.compose.material.icons.rounded.ScreenRotation
+import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.VolumeOff
 import androidx.compose.material.icons.rounded.VolumeUp
@@ -155,7 +163,8 @@ fun PlayerScreen(
     onBack: () -> Unit,
     onSaveProgress: (CoMediaItem, String, Long, Long) -> Unit,
     onPlayerClosed: () -> Unit,
-    onToggleSaved: (CoMediaItem) -> Unit
+    onToggleSaved: (CoMediaItem) -> Unit,
+    onNextEpisode: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val activity = remember(context) { context.findActivity() }
@@ -385,7 +394,17 @@ fun PlayerScreen(
     DisposableEffect(activity) {
         val act = activity ?: return@DisposableEffect onDispose { }
         val window = act.window
+        // Enable layout behind the display cutout (notch) on all edges so the
+        // video surface fills edge-to-edge including any camera cutout area.
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+            val params = window.attributes
+            params.layoutInDisplayCutoutMode =
+                WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            window.attributes = params
+        }
         val controller = WindowCompat.getInsetsController(window, window.decorView)
+        // Ensure the Compose layout tree is allowed to draw into the inset areas.
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         val previousOrientation = act.requestedOrientation
         controller.systemBarsBehavior =
             WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
@@ -394,6 +413,13 @@ fun PlayerScreen(
             act.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         }
         onDispose {
+            // Restore cutout mode to the default (never, which is 0)
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                val params = window.attributes
+                params.layoutInDisplayCutoutMode =
+                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT
+                window.attributes = params
+            }
             controller.show(WindowInsetsCompat.Type.systemBars())
             runCatching { act.requestedOrientation = previousOrientation }
         }
@@ -474,6 +500,10 @@ fun PlayerScreen(
             .fillMaxSize()
             .background(Color.Black)
     ) {
+        // Stable accumulated pinch scale (survives recomposition)
+        val pinchScaleRef = remember { androidx.compose.runtime.mutableFloatStateOf(1f) }
+        var pinchHudLabel by remember { mutableStateOf<String?>(null) }
+
         AndroidView(
             factory = { viewContext ->
                 PlayerView(viewContext).apply {
@@ -511,6 +541,24 @@ fun PlayerScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
+                    .pointerInput(Unit) {
+                        // ── Pinch-to-zoom: changes ExoPlayer resizeMode in real time ──
+                        detectTransformGestures { _, _, zoomDelta, _ ->
+                            if (zoomDelta == 1f) return@detectTransformGestures
+                            val next = (pinchScaleRef.floatValue * zoomDelta).coerceIn(0.5f, 3f)
+                            pinchScaleRef.floatValue = next
+                            val newMode = when {
+                                next > 1.2f -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                                next < 0.85f -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+                                else -> resizeMode
+                            }
+                            if (newMode != resizeMode) {
+                                resizeMode = newMode
+                                pinchHudLabel = if (newMode == AspectRatioFrameLayout.RESIZE_MODE_ZOOM) "Fill" else "Fit"
+                                scope.launch { delay(1200); pinchHudLabel = null }
+                            }
+                        }
+                    }
                     .pointerInput(locked) {
                         if (locked) {
                             detectTapGestures {
@@ -549,30 +597,13 @@ fun PlayerScreen(
                                 }
                                 val dx = change.position.x - downX
                                 val dy = change.position.y - downY
-                                if (!dragging && (abs(dx) > viewConfiguration.touchSlop ||
-                                            abs(dy) > viewConfiguration.touchSlop)
-                                ) {
+                                if (!dragging && abs(dy) > viewConfiguration.touchSlop && abs(dy) > abs(dx)) {
                                     dragging = true
-                                    mode = when {
-                                        abs(dx) > abs(dy) -> 1
-                                        downX < width / 2f -> 2
-                                        else -> 3
-                                    }
-                                    if (mode == 1) controlsVisible = true
+                                    mode = if (downX < width / 2f) 2 else 3
                                 }
                                 if (!dragging) continue
                                 change.consume()
                                 when (mode) {
-                                    1 -> {
-                                        val delta = (dx / width * 120_000f).toLong()
-                                        targetSeek = if (durationMs > 0L) {
-                                            (startPosition + delta).coerceIn(0L, durationMs)
-                                        } else {
-                                            (startPosition + delta).coerceAtLeast(0L)
-                                        }
-                                        gestureSeekMs = targetSeek
-                                        sliderSeekMs = null
-                                    }
                                     2 -> {
                                         targetBrightness =
                                             (brightnessLevel - dy / height * 1.15f).coerceIn(0.04f, 1f)
@@ -602,14 +633,6 @@ fun PlayerScreen(
 
                             if (dragging) {
                                 when (mode) {
-                                    1 -> {
-                                        exoPlayer.seekTo(targetSeek)
-                                        controlsVisible = true
-                                        scope.launch {
-                                            delay(550)
-                                            gestureSeekMs = null
-                                        }
-                                    }
                                     2 -> {
                                         brightnessLevel = targetBrightness
                                         scope.launch {
@@ -697,6 +720,7 @@ fun PlayerScreen(
             }
 
             if (controlsVisible && !locked && !isPipMode && errorText == null) {
+                // ── Top bar (back + title on left; pip + bookmark on right) ──────
                 PlayerTopBar(
                     title = request.item.title,
                     subtitle = buildString {
@@ -710,14 +734,71 @@ fun PlayerScreen(
                     live = livePlayback,
                     saved = saved,
                     pipSupported = pipSupported,
+                    isSeries = request.item.isSeries,
                     onBack = { closePlayer() },
                     onToggleSaved = { onToggleSaved(request.item) },
-                    onPip = { enterPip() }
+                    onPip = { enterPip() },
+                    onNextEpisode = onNextEpisode,
+                    speed = speed,
+                    onSpeedClick = { sheetOpen = true },
+                    onSettings = { sheetOpen = true },
+                    onRotate = { toggleOrientation() }
                 )
 
+                // ── Center playback controls (seek ±10 + play/pause) ─────────────
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .displayCutoutPadding(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(28.dp)
+                ) {
+                    GlassIconButton(
+                        icon = Icons.Rounded.Replay10,
+                        contentDescription = "Seek back 10s",
+                        size = 52.dp,
+                        tint = TextPrimary,
+                        onClick = {
+                            val target = (exoPlayer.currentPosition - 10_000L).coerceAtLeast(0L)
+                            exoPlayer.seekTo(target)
+                            flashSide = -1
+                            val token = System.currentTimeMillis()
+                            flashToken = token
+                            scope.launch { delay(600); if (flashToken == token) flashSide = 0 }
+                        }
+                    )
+                    GlassIconButton(
+                        icon = when {
+                            playbackState == Player.STATE_ENDED -> Icons.Rounded.Replay
+                            isPlaying -> Icons.Rounded.Pause
+                            else -> Icons.Rounded.PlayArrow
+                        },
+                        contentDescription = if (isPlaying) "Pause" else "Play",
+                        size = 64.dp,
+                        tint = TextPrimary,
+                        onClick = { togglePlayback() }
+                    )
+                    GlassIconButton(
+                        icon = Icons.Rounded.Forward10,
+                        contentDescription = "Seek forward 10s",
+                        size = 52.dp,
+                        tint = TextPrimary,
+                        onClick = {
+                            val max = exoPlayer.duration.takeIf { it > 0L } ?: Long.MAX_VALUE
+                            exoPlayer.seekTo((exoPlayer.currentPosition + 10_000L).coerceAtMost(max))
+                            flashSide = 1
+                            val token = System.currentTimeMillis()
+                            flashToken = token
+                            scope.launch { delay(600); if (flashToken == token) flashSide = 0 }
+                        }
+                    )
+                }
+
+                // ── Lock button (CenterStart) ────────────────────────────────────
                 Box(
                     modifier = Modifier
                         .align(Alignment.CenterStart)
+                        .displayCutoutPadding()
                         .padding(start = 16.dp)
                 ) {
                     GlassIconButton(
@@ -738,6 +819,7 @@ fun PlayerScreen(
                 Row(
                     modifier = Modifier
                         .align(Alignment.CenterStart)
+                        .displayCutoutPadding()
                         .padding(start = 24.dp)
                         .clip(RoundedCornerShape(50))
                         .background(Color.Black.copy(alpha = 0.62f))
@@ -765,246 +847,146 @@ fun PlayerScreen(
                 }
             }
 
-            AnimatedVisibility(
-                visible = controlsVisible && !locked && !isPlaying &&
-                    playbackState != Player.STATE_BUFFERING && errorText == null && !isPipMode,
-                enter = fadeIn(tween(180)),
-                exit = fadeOut(tween(180)),
-                modifier = Modifier.align(Alignment.Center)
+            // ── Bottom panel: seekbar + timestamps + footer ──────────────────────────
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.BottomCenter
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(70.dp)
-                        .clip(CircleShape)
-                        .background(Color.Black.copy(alpha = 0.38f))
-                        .border(1.dp, Color.White.copy(alpha = 0.22f), CircleShape)
-                        .clickable { togglePlayback() },
-                    contentAlignment = Alignment.Center
+                AnimatedVisibility(
+                    visible = controlsVisible && !locked && !isPipMode && errorText == null,
+                    enter = fadeIn(tween(200)),
+                    exit = fadeOut(tween(180))
                 ) {
-                    Icon(
-                        imageVector = if (playbackState == Player.STATE_ENDED) {
-                            Icons.Rounded.Replay
-                        } else {
-                            Icons.Rounded.PlayArrow
-                        },
-                        contentDescription = "Play",
-                        tint = Color.White,
-                        modifier = Modifier.size(38.dp)
-                    )
-                }
-            }
-
-            AnimatedVisibility(
-                visible = controlsVisible && !locked && !isPipMode && errorText == null,
-                enter = fadeIn(tween(200)),
-                exit = fadeOut(tween(180))
-            ) {
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .background(
-                            Brush.verticalGradient(
-                                listOf(
-                                    Color.Transparent,
-                                    Color.Black.copy(alpha = 0.52f),
-                                    Color.Black.copy(alpha = 0.92f)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                Brush.verticalGradient(
+                                    listOf(Color.Transparent, Color.Black.copy(alpha = 0.72f))
                                 )
                             )
-                        )
-                        .navigationBarsPadding()
-                        .displayCutoutPadding()
-                        .padding(horizontal = 18.dp)
-                        .padding(top = 38.dp, bottom = 10.dp)
-                ) {
-                    if (!livePlayback) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = formatClock(shownPosition),
-                                color = if (sliderSeekMs != null || gestureSeekMs != null) Teal else TextPrimary,
-                                style = MaterialTheme.typography.labelLarge.copy(
-                                    fontSize = 11.5.sp,
-                                    fontWeight = FontWeight.Bold
+                            .navigationBarsPadding()
+                            .displayCutoutPadding()
+                            .padding(horizontal = 18.dp)
+                            .padding(top = 28.dp, bottom = 12.dp)
+                    ) {
+                        if (!livePlayback) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = formatClock(shownPosition),
+                                    color = if (sliderSeekMs != null || gestureSeekMs != null) Teal else TextPrimary,
+                                    style = MaterialTheme.typography.labelLarge.copy(
+                                        fontSize = 11.5.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
                                 )
-                            )
-                            Spacer(Modifier.weight(1f))
-                            Text(
-                                text = if (durationMs > 0L) formatClock(durationMs) else "—:—",
-                                color = TextSecondary,
-                                style = MaterialTheme.typography.labelLarge.copy(fontSize = 11.5.sp)
-                            )
-                        }
-                        CinemaScrubber(
-                            positionMs = shownPosition,
-                            durationMs = durationMs,
-                            bufferedMs = bufferedMs,
-                            enabled = durationMs > 0L,
-                            onPreview = {
-                                sliderSeekMs = it
-                                controlsVisible = true
-                            },
-                            onCommit = {
-                                exoPlayer.seekTo(it)
-                                sliderSeekMs = null
-                                controlsVisible = true
+                                Spacer(Modifier.weight(1f))
+                                Text(
+                                    text = if (durationMs > 0L) formatClock(durationMs) else "—:—",
+                                    color = TextSecondary,
+                                    style = MaterialTheme.typography.labelLarge.copy(fontSize = 11.5.sp)
+                                )
                             }
-                        )
-                    } else {
+                            Spacer(Modifier.height(4.dp))
+                            CinemaScrubber(
+                                positionMs = shownPosition,
+                                durationMs = durationMs,
+                                bufferedMs = bufferedMs,
+                                enabled = durationMs > 0L,
+                                onPreview = {
+                                    sliderSeekMs = it
+                                    controlsVisible = true
+                                },
+                                onCommit = {
+                                    exoPlayer.seekTo(it)
+                                    sliderSeekMs = null
+                                    controlsVisible = true
+                                }
+                            )
+                        } else {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(7.dp)
+                                        .clip(CircleShape)
+                                        .background(Red)
+                                )
+                                Spacer(Modifier.width(7.dp))
+                                Text(
+                                    text = "LIVE",
+                                    color = TextPrimary,
+                                    style = MaterialTheme.typography.labelLarge.copy(
+                                        fontWeight = FontWeight.Black,
+                                        letterSpacing = 1.2.sp,
+                                        fontSize = 11.sp
+                                    )
+                                )
+                                Spacer(Modifier.width(9.dp))
+                                Text(
+                                    text = request.item.provider,
+                                    color = TextSecondary,
+                                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.5.sp),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                if (exoPlayer.isCurrentMediaItemSeekable) {
+                                    Text(
+                                        text = "GO LIVE",
+                                        color = Teal,
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            letterSpacing = 0.9.sp,
+                                            fontSize = 9.sp
+                                        ),
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(50))
+                                            .background(Teal.copy(alpha = 0.10f))
+                                            .border(1.dp, Teal.copy(alpha = 0.22f), RoundedCornerShape(50))
+                                            .clickable { exoPlayer.seekToDefaultPosition() }
+                                            .padding(horizontal = 11.dp, vertical = 6.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(Modifier.height(6.dp))
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(bottom = 6.dp),
+                                .padding(horizontal = 3.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(7.dp)
-                                    .clip(CircleShape)
-                                    .background(Red)
-                            )
-                            Spacer(Modifier.width(7.dp))
                             Text(
-                                text = "LIVE",
-                                color = TextPrimary,
-                                style = MaterialTheme.typography.labelLarge.copy(
-                                    fontWeight = FontWeight.Black,
-                                    letterSpacing = 1.2.sp,
-                                    fontSize = 11.sp
-                                )
-                            )
-                            Spacer(Modifier.width(9.dp))
-                            Text(
-                                text = request.item.provider,
-                                color = TextSecondary,
-                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.5.sp),
+                                text = request.item.title,
+                                color = TextMuted,
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontSize = 8.5.sp,
+                                    letterSpacing = 0.4.sp
+                                ),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f)
                             )
-                            if (exoPlayer.isCurrentMediaItemSeekable) {
-                                Text(
-                                    text = "GO LIVE",
-                                    color = Teal,
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        letterSpacing = 0.9.sp,
-                                        fontSize = 9.sp
-                                    ),
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(50))
-                                        .background(Teal.copy(alpha = 0.10f))
-                                        .border(1.dp, Teal.copy(alpha = 0.22f), RoundedCornerShape(50))
-                                        .clickable { exoPlayer.seekToDefaultPosition() }
-                                        .padding(horizontal = 11.dp, vertical = 6.dp)
+                            Text(
+                                text = "CO-STREAM PLAYER",
+                                color = TextMuted.copy(alpha = 0.65f),
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontSize = 8.sp,
+                                    letterSpacing = 1.2.sp
                                 )
-                            }
-                        }
-                    }
-
-                    Spacer(Modifier.height(5.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        PlayerIconButton(
-                            icon = if (muted) Icons.Rounded.VolumeOff else Icons.Rounded.VolumeUp,
-                            contentDescription = if (muted) "Unmute" else "Mute",
-                            onClick = {
-                                muted = !muted
-                                exoPlayer.volume = if (muted) 0f else 1f
-                                controlsVisible = true
-                            }
-                        )
-                        Spacer(Modifier.width(4.dp))
-                        if (!livePlayback) {
-                            PlayerIconButton(
-                                icon = Icons.Rounded.Replay10,
-                                contentDescription = "Rewind 10 seconds",
-                                onClick = {
-                                    exoPlayer.seekTo((exoPlayer.currentPosition - 10_000L).coerceAtLeast(0L))
-                                    controlsVisible = true
-                                }
                             )
                         }
-                        Spacer(Modifier.width(4.dp))
-                        Box(
-                            modifier = Modifier
-                                .size(58.dp)
-                                .clip(CircleShape)
-                                .background(Brush.linearGradient(listOf(Teal, Blue)))
-                                .clickable { togglePlayback() },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = when {
-                                    playbackState == Player.STATE_ENDED -> Icons.Rounded.Replay
-                                    isPlaying -> Icons.Rounded.Pause
-                                    else -> Icons.Rounded.PlayArrow
-                                },
-                                contentDescription = if (isPlaying) "Pause" else "Play",
-                                tint = Ink,
-                                modifier = Modifier.size(32.dp)
-                            )
-                        }
-                        Spacer(Modifier.width(4.dp))
-                        if (!livePlayback) {
-                            PlayerIconButton(
-                                icon = Icons.Rounded.Forward10,
-                                contentDescription = "Forward 10 seconds",
-                                onClick = {
-                                    val max = exoPlayer.duration.takeIf { it > 0L } ?: Long.MAX_VALUE
-                                    exoPlayer.seekTo((exoPlayer.currentPosition + 10_000L).coerceAtMost(max))
-                                    controlsVisible = true
-                                }
-                            )
-                        }
-                        Spacer(Modifier.weight(1f))
-                        SpeedBadge(speed) { sheetOpen = true }
-                        Spacer(Modifier.width(5.dp))
-                        PlayerIconButton(
-                            icon = Icons.Rounded.Tune,
-                            contentDescription = "Playback settings",
-                            onClick = { sheetOpen = true }
-                        )
-                        Spacer(Modifier.width(4.dp))
-                        PlayerIconButton(
-                            icon = Icons.Rounded.ScreenRotation,
-                            contentDescription = "Rotate video",
-                            onClick = { toggleOrientation() }
-                        )
-                    }
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 2.dp, start = 3.dp, end = 3.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = request.item.title,
-                            color = TextMuted,
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontSize = 8.5.sp,
-                                letterSpacing = 0.4.sp
-                            ),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Text(
-                            text = "CO-STREAM PLAYER",
-                            color = TextMuted.copy(alpha = 0.65f),
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontSize = 8.sp,
-                                letterSpacing = 1.2.sp
-                            )
-                        )
                     }
                 }
-            }
+            } // BottomCenter Box
 
             flashSide.takeIf { it != 0 }?.let { side ->
                 Row(
@@ -1076,6 +1058,36 @@ fun PlayerScreen(
                         .align(Alignment.Center)
                         .padding(bottom = 120.dp)
                 )
+            }
+
+            // ── Pinch-to-zoom HUD ─────────────────────────────────────────────
+            pinchHudLabel?.let { label ->
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .clip(RoundedCornerShape(50))
+                        .background(Color.Black.copy(alpha = 0.70f))
+                        .border(1.dp, Color.White.copy(alpha = 0.14f), RoundedCornerShape(50))
+                        .padding(horizontal = 20.dp, vertical = 10.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = if (label == "Fill") Icons.Rounded.Fullscreen else Icons.Rounded.FullscreenExit,
+                            contentDescription = null,
+                            tint = Teal,
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = "Zoom: $label",
+                            color = TextPrimary,
+                            style = MaterialTheme.typography.labelLarge.copy(
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        )
+                    }
+                }
             }
         }
 
@@ -1152,18 +1164,24 @@ private fun PlayerTopBar(
     live: Boolean,
     saved: Boolean,
     pipSupported: Boolean,
+    isSeries: Boolean,
+    speed: Float,
     onBack: () -> Unit,
     onToggleSaved: () -> Unit,
-    onPip: () -> Unit
+    onPip: () -> Unit,
+    onNextEpisode: (() -> Unit)?,
+    onSpeedClick: () -> Unit,
+    onSettings: () -> Unit,
+    onRotate: () -> Unit
 ) {
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(
                 Brush.verticalGradient(
                     listOf(
-                        Color.Black.copy(alpha = 0.82f),
-                        Color.Black.copy(alpha = 0.38f),
+                        Color.Black.copy(alpha = 0.88f),
+                        Color.Black.copy(alpha = 0.50f),
                         Color.Transparent
                     )
                 )
@@ -1171,71 +1189,103 @@ private fun PlayerTopBar(
             .statusBarsPadding()
             .displayCutoutPadding()
             .padding(horizontal = 14.dp)
-            .padding(top = 8.dp, bottom = 22.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(top = 8.dp, bottom = 24.dp)
     ) {
-        GlassIconButton(
-            icon = Icons.Rounded.ArrowBackIosNew,
-            contentDescription = "Back",
-            size = 40.dp,
-            onClick = onBack
-        )
-        Spacer(Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                color = TextPrimary,
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
-                ),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            // ── Left: Back + title ────────────────────────────────────────────
+            GlassIconButton(
+                icon = Icons.Rounded.ArrowBackIosNew,
+                contentDescription = "Back",
+                size = 40.dp,
+                onClick = onBack
             )
-            Spacer(Modifier.height(3.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (live) {
-                    Box(
-                        modifier = Modifier
-                            .size(6.dp)
-                            .clip(CircleShape)
-                            .background(Red)
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        text = "LIVE",
-                        color = Red,
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontSize = 8.5.sp,
-                            letterSpacing = 0.8.sp
-                        )
-                    )
-                    Spacer(Modifier.width(8.dp))
-                }
+            Spacer(Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = subtitle,
-                    color = TextSecondary,
-                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.5.sp),
+                    text = title,
+                    color = TextPrimary,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp
+                    ),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+                Spacer(Modifier.height(2.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (live) {
+                        Box(
+                            modifier = Modifier
+                                .size(6.dp)
+                                .clip(CircleShape)
+                                .background(Red)
+                        )
+                        Spacer(Modifier.width(5.dp))
+                        Text(
+                            text = "LIVE",
+                            color = Red,
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontSize = 8.5.sp,
+                                letterSpacing = 0.8.sp
+                            )
+                        )
+                        Spacer(Modifier.width(7.dp))
+                    }
+                    Text(
+                        text = subtitle,
+                        color = TextSecondary,
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
-        }
-        Spacer(Modifier.width(10.dp))
-        GlassIconButton(
-            icon = if (saved) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder,
-            contentDescription = if (saved) "Remove from My List" else "Add to My List",
-            size = 40.dp,
-            tint = if (saved) Teal else TextPrimary,
-            onClick = onToggleSaved
-        )
-        if (pipSupported) {
             Spacer(Modifier.width(8.dp))
+            // ── Right: action buttons ─────────────────────────────────────────
+            // Speed badge
+            SpeedBadge(speed, onClick = onSpeedClick)
+            Spacer(Modifier.width(4.dp))
+            // Next episode (series only)
+            if (isSeries && onNextEpisode != null) {
+                GlassIconButton(
+                    icon = Icons.Rounded.SkipNext,
+                    contentDescription = "Next episode",
+                    size = 40.dp,
+                    tint = Teal,
+                    onClick = onNextEpisode
+                )
+                Spacer(Modifier.width(4.dp))
+            }
+            // Bookmark
             GlassIconButton(
-                icon = Icons.Rounded.PictureInPictureAlt,
-                contentDescription = "Picture in picture",
+                icon = if (saved) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder,
+                contentDescription = if (saved) "Remove from My List" else "Add to My List",
                 size = 40.dp,
-                onClick = onPip
+                tint = if (saved) Teal else TextPrimary,
+                onClick = onToggleSaved
+            )
+            // PiP
+            if (pipSupported) {
+                Spacer(Modifier.width(4.dp))
+                GlassIconButton(
+                    icon = Icons.Rounded.PictureInPictureAlt,
+                    contentDescription = "Picture in picture",
+                    size = 40.dp,
+                    onClick = onPip
+                )
+            }
+            Spacer(Modifier.width(4.dp))
+            // Settings
+            PlayerIconButton(
+                icon = Icons.Rounded.Tune,
+                contentDescription = "Playback settings",
+                onClick = onSettings
+            )
+            // Rotate
+            PlayerIconButton(
+                icon = Icons.Rounded.ScreenRotation,
+                contentDescription = "Rotate",
+                onClick = onRotate
             )
         }
     }
@@ -1314,16 +1364,19 @@ private fun CinemaScrubber(
             .height(30.dp)
             .pointerInput(enabled, durationMs) {
                 if (!enabled || durationMs <= 0L) return@pointerInput
+                // Mirror the thumb-inset used by the Canvas so touch hits map exactly
+                // to the drawn track (thumb radius = 5.dp on each side).
+                val thumbPx = 5.dp.toPx()
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
-                    val width = size.width.toFloat().coerceAtLeast(1f)
-                    var fraction = (down.position.x / width).coerceIn(0f, 1f)
+                    val trackW = (size.width.toFloat() - thumbPx * 2f).coerceAtLeast(1f)
+                    var fraction = ((down.position.x - thumbPx) / trackW).coerceIn(0f, 1f)
                     onPreview((durationMs * fraction).toLong())
                     down.consume()
                     while (true) {
                         val event = awaitPointerEvent()
                         val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                        fraction = (change.position.x / width).coerceIn(0f, 1f)
+                        fraction = ((change.position.x - thumbPx) / trackW).coerceIn(0f, 1f)
                         onPreview((durationMs * fraction).toLong())
                         change.consume()
                         if (!change.pressed) break
@@ -1336,30 +1389,38 @@ private fun CinemaScrubber(
             val centerY = size.height / 2f
             val trackHeight = 3.dp.toPx()
             val corner = CornerRadius(trackHeight / 2f, trackHeight / 2f)
+            val thumbRadius = 5.dp.toPx()
+            // Clamp the drawable track width so the thumb never overflows the canvas.
+            val trackWidth = (size.width - thumbRadius * 2f).coerceAtLeast(0f)
+            val trackStart = thumbRadius
 
             drawRoundRect(
                 color = Color.White.copy(alpha = 0.18f),
-                topLeft = Offset(0f, centerY - trackHeight / 2f),
-                size = Size(size.width, trackHeight),
+                topLeft = Offset(trackStart, centerY - trackHeight / 2f),
+                size = Size(trackWidth, trackHeight),
                 cornerRadius = corner
             )
             if (buffered > 0f) {
                 drawRoundRect(
                     color = Color.White.copy(alpha = 0.30f),
-                    topLeft = Offset(0f, centerY - trackHeight / 2f),
-                    size = Size(size.width * buffered, trackHeight),
+                    topLeft = Offset(trackStart, centerY - trackHeight / 2f),
+                    size = Size(trackWidth * buffered, trackHeight),
                     cornerRadius = corner
                 )
             }
             if (progress > 0f) {
                 drawRoundRect(
-                    brush = Brush.horizontalGradient(listOf(Teal, Blue)),
-                    topLeft = Offset(0f, centerY - trackHeight / 2f),
-                    size = Size(size.width * progress, trackHeight),
+                    brush = Brush.horizontalGradient(
+                        listOf(Teal, Blue),
+                        startX = trackStart,
+                        endX = trackStart + trackWidth
+                    ),
+                    topLeft = Offset(trackStart, centerY - trackHeight / 2f),
+                    size = Size(trackWidth * progress, trackHeight),
                     cornerRadius = corner
                 )
             }
-            val thumbX = size.width * progress
+            val thumbX = (trackStart + trackWidth * progress).coerceIn(trackStart, trackStart + trackWidth)
             drawCircle(
                 color = Teal.copy(alpha = 0.18f),
                 radius = 10.dp.toPx(),
@@ -1367,7 +1428,7 @@ private fun CinemaScrubber(
             )
             drawCircle(
                 color = Color.White,
-                radius = 5.dp.toPx(),
+                radius = thumbRadius,
                 center = Offset(thumbX, centerY)
             )
         }

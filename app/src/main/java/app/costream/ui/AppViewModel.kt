@@ -1,7 +1,10 @@
 package app.costream.ui
 
 import android.app.Application
+import android.app.DownloadManager
 import android.content.Context
+import android.net.Uri
+import android.os.Environment
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -234,6 +237,26 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /** Play the next episode of the currently playing series request. */
+    fun playNextEpisode(current: PlayRequest) {
+        val item = current.item
+        if (!item.isSeries) return
+        val nextEp = item.selectedEpisode + 1
+        val season = item.selectedSeason
+        val episodeCount = item.seasons.firstOrNull { it.number == season }?.episodeCount
+            ?: item.episodes.size
+        if (episodeCount > 0 && nextEp > episodeCount) {
+            val nextSeason = season + 1
+            if (item.seasons.any { it.number == nextSeason }) {
+                playEpisode(item, nextSeason, 1)
+            } else {
+                showMessage("This was the last episode.")
+            }
+        } else {
+            playEpisode(item, season, nextEp)
+        }
+    }
+
     fun playEpisode(item: MediaItem, season: Int, episode: Int, audio: AudioVariant? = null) {
         if (playPreparing) return
         playPreparing = true
@@ -303,6 +326,22 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun removeFromMyList(item: MediaItem) {
         store.removeFromMyList(item.id)
         myList = store.myList()
+    }
+
+    fun downloadItem(item: MediaItem, source: StreamSource) {
+        val context = getApplication<Application>().applicationContext
+        val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+        val fileName = "${item.title}-${System.currentTimeMillis()}.mp4"
+        val request = DownloadManager.Request(Uri.parse(source.url)).apply {
+            setTitle(item.title)
+            setDescription("Downloading ${item.title}")
+            setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+            setDestinationInExternalPublicDir(Environment.DIRECTORY_MOVIES, "CoStream/$fileName")
+            setMimeType(source.mimeType ?: "video/mp4")
+        }
+        dm.enqueue(request)
+        store.addLocalVideos(listOf(item.copy()))
+        showMessage("Download started for ${item.title}")
     }
 
     fun isSaved(itemId: String): Boolean = myList.any { it.id == itemId }

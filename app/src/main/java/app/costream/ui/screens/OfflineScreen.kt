@@ -27,8 +27,9 @@ fun OfflineScreen(onBack: () -> Unit) {
                 Icons.Rounded.CloudOff,
                 "Offline library",
                 "Download movies and episodes to watch without internet.",
-                "Browse catalog"
-            ) { /* noop */ }
+                actionLabel = "Browse catalog",
+                onAction = { /* noop */ }
+            )
             Text("No offline content yet", color = TextMuted, style = MaterialTheme.typography.bodySmall)
         }
     }

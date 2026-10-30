@@ -154,7 +154,7 @@ private fun CatalogHome(
     }
 
     Box(Modifier.fillMaxSize()) {
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 104.dp)) {
+        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 72.dp, bottom = 104.dp)) {
             item {
                 if (featured.isNotEmpty()) Box {
                     HorizontalPager(state = pagerState, key = { featured.getOrNull(it)?.id ?: it }) { page ->

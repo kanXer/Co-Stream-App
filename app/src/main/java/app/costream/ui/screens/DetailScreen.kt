@@ -1,6 +1,10 @@
 package app.costream.ui.screens
 
+import android.app.DownloadManager
+import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import android.os.Environment
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -37,6 +41,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -84,7 +89,8 @@ fun DetailScreen(
     onPlayEpisode: (MediaItem, Int, Int, AudioVariant?) -> Unit,
     onSelectSeason: (Int) -> Unit,
     onToggleSaved: (MediaItem) -> Unit,
-    onRetry: () -> Unit
+    onRetry: () -> Unit,
+    onDownload: (MediaItem, StreamSource) -> Unit = { _, _ -> }
 ) {
     val item = loaded ?: original
     val context = LocalContext.current
@@ -92,6 +98,38 @@ fun DetailScreen(
     var selectedAudio by remember(item.id, item.audioVariants) { mutableStateOf<AudioVariant?>(null) }
     LaunchedEffect(item.sources.size) { if (selectedSource > item.sources.lastIndex) selectedSource = 0 }
     val source = item.sources.getOrNull(selectedSource)
+    var downloadId by remember(item.id) { mutableLongStateOf(-1L) }
+    var downloadProgress by remember(item.id) { mutableIntStateOf(0) }
+    var downloadDone by remember(item.id) { mutableStateOf(false) }
+
+    LaunchedEffect(downloadId) {
+        if (downloadId <= 0) return@LaunchedEffect
+        val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+        while (!downloadDone) {
+            try {
+                val query = DownloadManager.Query().setFilterById(downloadId)
+                val cursor = dm.query(query)
+                if (cursor.moveToFirst()) {
+                    val bytesDownloaded = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR))
+                    val bytesTotal = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
+                    val status = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
+                    if (bytesTotal > 0) {
+                        downloadProgress = ((bytesDownloaded * 100) / bytesTotal).toInt()
+                    }
+                    if (status == DownloadManager.STATUS_SUCCESSFUL) {
+                        downloadDone = true
+                        downloadProgress = 100
+                        break
+                    } else if (status == DownloadManager.STATUS_FAILED) {
+                        downloadDone = false
+                        downloadId = -1L
+                        break
+                    }
+                }
+            } catch (_: Exception) {}
+            kotlinx.coroutines.delay(500)
+        }
+    }
 
     Box(Modifier.fillMaxSize().background(Ink)) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 36.dp)) {
@@ -127,6 +165,31 @@ fun DetailScreen(
                             if (item.isSeries) onPlayEpisode(item, item.selectedSeason, item.selectedEpisode, selectedAudio)
                             else if (selectedAudio != null) onPlayEpisode(item, 1, 1, selectedAudio)
                             else onPlay(item, source)
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    PrimaryButton(
+                        text = if (downloadDone) "✓ Offline" else if (downloadId > 0) "$downloadProgress%" else "Save offline",
+                        loading = downloadId > 0 && !downloadDone,
+                        enabled = source != null && !downloadDone,
+                        onClick = {
+                            if (downloadDone) return@PrimaryButton
+                            source?.let {
+                                val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+                                val fileName = "${item.title}-${System.currentTimeMillis()}.mp4"
+                                val request = DownloadManager.Request(Uri.parse(it.url)).apply {
+                                    setTitle(item.title)
+                                    setDescription("Saving ${item.title} offline")
+                                    setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                                    setDestinationInExternalPublicDir(Environment.DIRECTORY_MOVIES, "CoStream/$fileName")
+                                    setMimeType(it.mimeType ?: "video/mp4")
+                                    addRequestHeader("User-Agent", "Co-Stream/2.0 (Android)")
+                                    addRequestHeader("Referer", "https://net27.cc/")
+                                    addRequestHeader("Accept", "*/*")
+                                }
+                                downloadId = dm.enqueue(request).toLong()
+                            }
                         },
                         modifier = Modifier.fillMaxWidth()
                     )

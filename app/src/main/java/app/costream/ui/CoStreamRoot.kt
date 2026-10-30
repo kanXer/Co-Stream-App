@@ -137,7 +137,8 @@ fun CoStreamRoot(viewModel: AppViewModel, pipMode: Boolean) {
                     onPlayEpisode = viewModel::playEpisode,
                     onSelectSeason = viewModel::selectSeason,
                     onToggleSaved = viewModel::toggleMyList,
-                    onRetry = viewModel::retryDetail
+                    onRetry = viewModel::retryDetail,
+                    onDownload = viewModel::downloadItem
                 )
                 is Screen.Player -> PlayerScreen(
                     request = current.request,
@@ -146,7 +147,10 @@ fun CoStreamRoot(viewModel: AppViewModel, pipMode: Boolean) {
                     onBack = viewModel::back,
                     onSaveProgress = viewModel::saveProgress,
                     onPlayerClosed = viewModel::onPlayerClosed,
-                    onToggleSaved = viewModel::toggleMyList
+                    onToggleSaved = viewModel::toggleMyList,
+                    onNextEpisode = if (current.request.item.isSeries) {
+                        { viewModel.playNextEpisode(current.request) }
+                    } else null
                 )
             }
         }
