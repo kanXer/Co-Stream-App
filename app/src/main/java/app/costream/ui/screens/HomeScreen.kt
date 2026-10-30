@@ -34,6 +34,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -43,11 +44,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.costream.data.HomeCategories
+import app.costream.data.HomeRow
 import app.costream.data.MediaItem
 import app.costream.data.WatchEntry
 import app.costream.ui.HomeUiState
 import app.costream.ui.components.CoStreamMark
 import app.costream.ui.components.EmptyState
+import app.costream.ui.components.GenreChip
 import app.costream.ui.components.HeroBanner
 import app.costream.ui.components.HomeTopBar
 import app.costream.ui.components.Pill
@@ -82,7 +86,16 @@ fun HomeScreen(
     userName: String? = null
 ) {
     val savedIds = remember(myList) { myList.map { it.id }.toSet() }
-    var selectedTab by remember { androidx.compose.runtime.mutableStateOf(CatalogTab.HOME) }
+    var selectedTab by remember { mutableStateOf(CatalogTab.HOME) }
+    var selectedCategory by remember(selectedTab) { mutableStateOf("All") }
+
+    val movieCategories = remember {
+        listOf("All", "🔥 Latest (Hindi & English)", "🎬 Hindi Movies", "🍿 English Movies")
+    }
+    val seriesCategories = remember {
+        listOf("All", "🔥 Trending", "🇮🇳 Hindi Series", "⚡ Thrillers", "🌍 Hollywood", "🌸 K-Drama", "⚔️ Anime")
+    }
+
     Box(Modifier.fillMaxSize().background(Ink)) {
         when (state) {
             HomeUiState.Idle, HomeUiState.Loading -> LoadingHome(myList.size, onSearch, onMyList, onProfile, photoUrl, userName)
@@ -92,30 +105,79 @@ fun HomeScreen(
                     EmptyState(Icons.Rounded.CloudOff, "Lost the signal", state.message, actionLabel = "Try again", onAction = onRefresh)
                 }
             }
-            is HomeUiState.Ready -> CatalogHome(
-                feed = when (selectedTab) {
-                    CatalogTab.HOME -> state.feed
-                    CatalogTab.MOVIES -> state.feed.copy(
-                        featured = state.feed.featured.filterNot { it.isSeries },
-                        rows = state.feed.rows.map { it.copy(items = it.items.filterNot { item -> item.isSeries }) }.filter { it.items.isNotEmpty() }
-                    )
-                    CatalogTab.SERIES -> state.feed.copy(
-                        featured = state.feed.featured.filter { it.isSeries },
-                        rows = state.feed.rows.map { it.copy(items = it.items.filter { item -> item.isSeries }) }.filter { it.items.isNotEmpty() }
-                    )
-                },
-                savedIds = savedIds,
-                continueWatching = continueWatching,
-                onSearch = onSearch,
-                onMyList = onMyList,
-                onProfile = onProfile,
-                onPlay = onPlay,
-                onDetails = onDetails,
-                onToggleSaved = onToggleSaved,
-                onResume = onResume,
-                photoUrl = photoUrl,
-                userName = userName
-            )
+            is HomeUiState.Ready -> {
+                val currentFeatured = remember(selectedTab, state.feed) {
+                    when (selectedTab) {
+                        CatalogTab.HOME -> state.feed.featured
+                        CatalogTab.MOVIES -> state.feed.featured.filterNot { it.isSeries }.ifEmpty {
+                            state.feed.rows.flatMap { it.items }.filterNot { it.isSeries }.distinctBy { it.id }.take(8)
+                        }
+                        CatalogTab.SERIES -> state.feed.rows
+                            .filter { it.category in listOf(HomeCategories.TRENDING_SERIES, HomeCategories.HINDI_SERIES, HomeCategories.THRILLER_SERIES) }
+                            .flatMap { it.items }
+                            .filter { it.isSeries }
+                            .distinctBy { it.id }
+                            .take(8)
+                            .ifEmpty { state.feed.featured.filter { it.isSeries } }
+                    }
+                }
+
+                val currentRows = remember(selectedTab, selectedCategory, state.feed.rows) {
+                    when (selectedTab) {
+                        CatalogTab.HOME -> state.feed.rows
+                        CatalogTab.MOVIES -> {
+                            val movieRows = state.feed.rows
+                                .map { it.copy(items = it.items.filterNot { item -> item.isSeries }) }
+                                .filter { it.items.isNotEmpty() }
+                            when (selectedCategory) {
+                                "🔥 Latest (Hindi & English)" -> movieRows.filter { it.category == HomeCategories.LATEST_MOVIES || it.title.contains("Latest Movies", ignoreCase = true) }
+                                "🎬 Hindi Movies" -> movieRows.filter { it.category == HomeCategories.HINDI_MOVIES || it.title.contains("Hindi", ignoreCase = true) }
+                                "🍿 English Movies" -> movieRows.filter { it.category == HomeCategories.ENGLISH_MOVIES || it.title.contains("English", ignoreCase = true) || it.title.contains("Hollywood", ignoreCase = true) }
+                                else -> movieRows
+                            }
+                        }
+                        CatalogTab.SERIES -> {
+                            val seriesRows = state.feed.rows
+                                .map { it.copy(items = it.items.filter { item -> item.isSeries }) }
+                                .filter { it.items.isNotEmpty() }
+                            when (selectedCategory) {
+                                "🔥 Trending" -> seriesRows.filter { it.category == HomeCategories.TRENDING_SERIES || it.title.contains("Trending", ignoreCase = true) }
+                                "🇮🇳 Hindi Series" -> seriesRows.filter { it.category == HomeCategories.HINDI_SERIES || it.title.contains("Hindi", ignoreCase = true) }
+                                "⚡ Thrillers" -> seriesRows.filter { it.category == HomeCategories.THRILLER_SERIES || it.title.contains("Thriller", ignoreCase = true) }
+                                "🌍 Hollywood" -> seriesRows.filter { it.category == HomeCategories.GLOBAL_SERIES || it.title.contains("Hollywood", ignoreCase = true) || it.title.contains("Global", ignoreCase = true) }
+                                "🌸 K-Drama" -> seriesRows.filter { it.category == HomeCategories.KDRAMA_SERIES || it.title.contains("K-Drama", ignoreCase = true) }
+                                "⚔️ Anime" -> seriesRows.filter { it.category == HomeCategories.ANIME_SERIES || it.title.contains("Anime", ignoreCase = true) }
+                                else -> seriesRows
+                            }
+                        }
+                    }
+                }
+
+                val categoryChips = when (selectedTab) {
+                    CatalogTab.HOME -> emptyList()
+                    CatalogTab.MOVIES -> movieCategories
+                    CatalogTab.SERIES -> seriesCategories
+                }
+
+                CatalogHome(
+                    featured = currentFeatured,
+                    rows = currentRows,
+                    categoryChips = categoryChips,
+                    selectedCategory = selectedCategory,
+                    onSelectCategory = { selectedCategory = it },
+                    savedIds = savedIds,
+                    continueWatching = continueWatching,
+                    onSearch = onSearch,
+                    onMyList = onMyList,
+                    onProfile = onProfile,
+                    onPlay = onPlay,
+                    onDetails = onDetails,
+                    onToggleSaved = onToggleSaved,
+                    onResume = onResume,
+                    photoUrl = photoUrl,
+                    userName = userName
+                )
+            }
         }
         CatalogBottomBar(
             selected = selectedTab,
@@ -128,7 +190,11 @@ fun HomeScreen(
 
 @Composable
 private fun CatalogHome(
-    feed: app.costream.data.HomeFeed,
+    featured: List<MediaItem>,
+    rows: List<HomeRow>,
+    categoryChips: List<String>,
+    selectedCategory: String,
+    onSelectCategory: (String) -> Unit,
     savedIds: Set<String>,
     continueWatching: List<WatchEntry>,
     onSearch: () -> Unit,
@@ -141,7 +207,6 @@ private fun CatalogHome(
     photoUrl: String? = null,
     userName: String? = null
 ) {
-    val featured = feed.featured
     val pagerState = rememberPagerState(pageCount = { featured.size.coerceAtLeast(1) })
     var currentPage by remember(featured) { mutableIntStateOf(0) }
     LaunchedEffect(pagerState.currentPage) { currentPage = pagerState.currentPage }
@@ -176,6 +241,23 @@ private fun CatalogHome(
                     )
                 }
             }
+            if (categoryChips.isNotEmpty()) {
+                item {
+                    Spacer(Modifier.height(18.dp))
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 20.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(categoryChips) { chip ->
+                            GenreChip(
+                                text = chip,
+                                selected = selectedCategory == chip,
+                                onClick = { onSelectCategory(chip) }
+                            )
+                        }
+                    }
+                }
+            }
             if (continueWatching.isNotEmpty()) {
                 item { Spacer(Modifier.height(24.dp)); SectionHeader("Continue watching", subtitle = "Jump back in", trailingText = "${continueWatching.size} in progress") }
                 item {
@@ -185,7 +267,7 @@ private fun CatalogHome(
                     }
                 }
             }
-            items(feed.rows) { row ->
+            items(rows) { row ->
                 Spacer(Modifier.height(34.dp))
                 SectionHeader(row.title, subtitle = row.subtitle, trailingText = if (row.ranked) "TOP 10" else null)
                 Spacer(Modifier.height(14.dp))

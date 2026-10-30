@@ -77,11 +77,24 @@ data class MediaItem(
     val isArchive: Boolean get() = archiveId != null
 }
 
+object HomeCategories {
+    const val LATEST_MOVIES = "latest_movies"
+    const val HINDI_MOVIES = "hindi_movies"
+    const val ENGLISH_MOVIES = "english_movies"
+    const val TRENDING_SERIES = "trending_series"
+    const val HINDI_SERIES = "hindi_series"
+    const val THRILLER_SERIES = "thriller_series"
+    const val GLOBAL_SERIES = "global_series"
+    const val KDRAMA_SERIES = "kdrama_series"
+    const val ANIME_SERIES = "anime_series"
+}
+
 data class HomeRow(
     val title: String,
     val subtitle: String? = null,
     val items: List<MediaItem>,
-    val ranked: Boolean = false
+    val ranked: Boolean = false,
+    val category: String? = null
 )
 
 data class HomeFeed(

@@ -32,42 +32,224 @@ class NetMirrorRepository(private val client: OkHttpClient) {
             }
         }
 
-        val rows = coroutineScope {
-            selected.map { platform ->
-                async {
+        val feed = coroutineScope {
+            // Curated rails for selected platforms + ensure Netflix & PrimeVideo are included for Hindi & English curated rails
+            val platformsToFetch = (selected + listOf("Netflix", "PrimeVideo")).distinct()
+            val curatedDeferred = platformsToFetch.associateWith { platform ->
+                async { runCatching { curated(platform) }.getOrDefault(emptyList()) }
+            }
+
+            // Anime curated from Crunchyroll
+            val animeDeferred = async { runCatching { curated("Crunchyroll") }.getOrDefault(emptyList()) }
+
+            // Web series discovery jobs
+            val hindiSeriesDeferred = async { runCatching { discover("Netflix", "tv", country = "IN") }.getOrDefault(emptyList()) }
+            val globalSeriesDeferred = async { runCatching { discover("Netflix", "tv", country = "US") }.getOrDefault(emptyList()) }
+            val kdramaSeriesDeferred = async { runCatching { discover("Netflix", "tv", country = "KR") }.getOrDefault(emptyList()) }
+
+            // Movie discovery job
+            val discoverMoviesDeferred = async { runCatching { discover("Netflix", "movie") }.getOrDefault(emptyList()) }
+
+            // Await all
+            val curatedByPlatform = curatedDeferred.mapValues { it.value.await() }
+            val animeCurated = animeDeferred.await()
+            val hindiSeriesDiscover = hindiSeriesDeferred.await()
+            val globalSeriesDiscover = globalSeriesDeferred.await()
+            val kdramaSeriesDiscover = kdramaSeriesDeferred.await()
+            val discoverMovies = discoverMoviesDeferred.await()
+
+            // 1. EXTRACT MOVIES (Latest, Hindi, English)
+            val allCuratedRails = curatedByPlatform.values.flatten()
+
+            val hindiMovieCandidates = allCuratedRails
+                .filter { rail -> HINDI_RAIL.containsMatchIn(rail.first) }
+                .flatMap { it.second }
+                .filter { it.mediaType == "movie" }
+                .distinctBy { it.id }
+                .sortedWith(compareByDescending<MediaItem> { it.year?.toIntOrNull() ?: 0 }.thenBy { it.title })
+
+            val hindiIds = hindiMovieCandidates.mapNotNull { it.tmdbId }.toSet()
+
+            val englishMovieCandidates = (allCuratedRails
+                .filter { rail -> ENGLISH_RAIL.containsMatchIn(rail.first) && !HINDI_RAIL.containsMatchIn(rail.first) }
+                .flatMap { it.second }
+                .filter { it.mediaType == "movie" && it.tmdbId !in hindiIds } +
+                discoverMovies.filter { it.mediaType == "movie" && it.tmdbId !in hindiIds })
+                .distinctBy { it.id }
+                .sortedWith(compareByDescending<MediaItem> { it.year?.toIntOrNull() ?: 0 }.thenBy { it.title })
+
+            // Latest movies strictly prioritizing latest years (2026, 2025, 2024...) in Hindi and English
+            val latestCombined = (hindiMovieCandidates + englishMovieCandidates)
+                .distinctBy { it.id }
+                .sortedWith(compareByDescending<MediaItem> { it.year?.toIntOrNull() ?: 0 }.thenBy { it.title })
+
+            // Featured carousel: Interleave the newest latest Hindi and English movies so both appear at the top!
+            val featuredList = buildList {
+                val hIter = hindiMovieCandidates.iterator()
+                val eIter = englishMovieCandidates.iterator()
+                while (size < 10 && (hIter.hasNext() || eIter.hasNext())) {
+                    if (hIter.hasNext()) add(hIter.next())
+                    if (size < 10 && eIter.hasNext()) add(eIter.next())
+                }
+            }.ifEmpty { latestCombined.take(10) }
+
+            // 2. EXTRACT WEB SERIES CATEGORIES
+            val trendingSeriesCandidates = (allCuratedRails
+                .filter { rail -> SERIES_RAIL.containsMatchIn(rail.first) }
+                .flatMap { it.second }
+                .filter { it.mediaType == "tv" } + globalSeriesDiscover)
+                .distinctBy { it.id }
+
+            val hindiSeriesCandidates = (hindiSeriesDiscover + allCuratedRails
+                .filter { rail -> HINDI_RAIL.containsMatchIn(rail.first) }
+                .flatMap { it.second }
+                .filter { it.mediaType == "tv" })
+                .distinctBy { it.id }
+
+            val thrillerSeriesCandidates = allCuratedRails
+                .filter { rail -> THRILLER_RAIL.containsMatchIn(rail.first) }
+                .flatMap { it.second }
+                .filter { it.mediaType == "tv" }
+                .distinctBy { it.id }
+
+            val globalSeriesCandidates = globalSeriesDiscover
+                .filter { it.mediaType == "tv" }
+                .distinctBy { it.id }
+
+            val kdramaSeriesCandidates = kdramaSeriesDiscover
+                .filter { it.mediaType == "tv" }
+                .distinctBy { it.id }
+
+            val animeSeriesCandidates = (animeCurated
+                .flatMap { it.second }
+                .filter { it.mediaType == "tv" } +
+                allCuratedRails.filter { it.first.contains("Anime", ignoreCase = true) }.flatMap { it.second })
+                .distinctBy { it.id }
+
+            // 3. BUILD ALL ROWS
+            val rows = buildList {
+                // Latest movies (Hindi & English) at the top
+                if (latestCombined.isNotEmpty()) {
+                    add(
+                        HomeRow(
+                            title = "🔥 Latest Movies (Hindi & English)",
+                            subtitle = "Fresh releases & blockbusters in Hindi & English",
+                            items = latestCombined.take(15),
+                            ranked = true,
+                            category = HomeCategories.LATEST_MOVIES
+                        )
+                    )
+                }
+                if (hindiMovieCandidates.isNotEmpty()) {
+                    add(
+                        HomeRow(
+                            title = "🎬 Latest Hindi Blockbusters",
+                            subtitle = "Top Bollywood & Indian cinema in Hindi",
+                            items = hindiMovieCandidates.take(15),
+                            ranked = true,
+                            category = HomeCategories.HINDI_MOVIES
+                        )
+                    )
+                }
+                if (englishMovieCandidates.isNotEmpty()) {
+                    add(
+                        HomeRow(
+                            title = "🍿 Latest Hollywood & Global Hits",
+                            subtitle = "Top English releases & worldwide favorites",
+                            items = englishMovieCandidates.take(15),
+                            ranked = true,
+                            category = HomeCategories.ENGLISH_MOVIES
+                        )
+                    )
+                }
+
+                // WEB SERIES CATEGORIES
+                if (trendingSeriesCandidates.isNotEmpty()) {
+                    add(
+                        HomeRow(
+                            title = "🔥 Trending Web Series",
+                            subtitle = "Most watched shows & originals",
+                            items = trendingSeriesCandidates.take(15),
+                            ranked = true,
+                            category = HomeCategories.TRENDING_SERIES
+                        )
+                    )
+                }
+                if (hindiSeriesCandidates.isNotEmpty()) {
+                    add(
+                        HomeRow(
+                            title = "🇮🇳 Top Hindi Web Series",
+                            subtitle = "Popular Indian web series & drama",
+                            items = hindiSeriesCandidates.take(15),
+                            ranked = true,
+                            category = HomeCategories.HINDI_SERIES
+                        )
+                    )
+                }
+                if (thrillerSeriesCandidates.isNotEmpty()) {
+                    add(
+                        HomeRow(
+                            title = "⚡ Thriller & Mystery Series",
+                            subtitle = "High stakes, gripping twists & suspense",
+                            items = thrillerSeriesCandidates.take(15),
+                            category = HomeCategories.THRILLER_SERIES
+                        )
+                    )
+                }
+                if (globalSeriesCandidates.isNotEmpty()) {
+                    add(
+                        HomeRow(
+                            title = "🌍 Hollywood & Global Series",
+                            subtitle = "Acclaimed international shows",
+                            items = globalSeriesCandidates.take(15),
+                            category = HomeCategories.GLOBAL_SERIES
+                        )
+                    )
+                }
+                if (kdramaSeriesCandidates.isNotEmpty()) {
+                    add(
+                        HomeRow(
+                            title = "🌸 K-Drama & Asian Series",
+                            subtitle = "Popular Korean drama & Asian hits",
+                            items = kdramaSeriesCandidates.take(15),
+                            category = HomeCategories.KDRAMA_SERIES
+                        )
+                    )
+                }
+                if (animeSeriesCandidates.isNotEmpty()) {
+                    add(
+                        HomeRow(
+                            title = "⚔️ Anime & Animation Series",
+                            subtitle = "Top Japanese anime & action series",
+                            items = animeSeriesCandidates.take(15),
+                            category = HomeCategories.ANIME_SERIES
+                        )
+                    )
+                }
+
+                // Platform specific rails
+                selected.forEach { platform ->
                     val label = platformLabel(platform)
-                    val curated = runCatching { curated(platform) }.getOrDefault(emptyList())
-                    val movieCandidates = curated
-                        .filter { rail -> HINDI_RAIL.containsMatchIn(rail.first) }
-                        .flatMap { it.second }
-                        .filter { it.mediaType == "movie" }
-                        .distinctBy { it.id }
-                    val movies = if (movieCandidates.isNotEmpty()) {
-                        movieCandidates.take(10)
-                    } else {
-                        runCatching { discover(platform, "movie") }.getOrDefault(emptyList()).take(10)
+                    val rails = curatedByPlatform[platform].orEmpty()
+                    val pMovies = rails.flatMap { it.second }.filter { it.mediaType == "movie" }.distinctBy { it.id }
+                    val pSeries = rails.flatMap { it.second }.filter { it.mediaType == "tv" }.distinctBy { it.id }
+                    if (pMovies.isNotEmpty()) {
+                        add(HomeRow("Top Movies on $label", "Curated for $label", pMovies.take(12), category = HomeCategories.ENGLISH_MOVIES))
                     }
-                    val series = runCatching { discover(platform, "tv", country = "IN") }
-                        .getOrDefault(emptyList())
-                        .take(10)
-                    buildList {
-                        if (movies.isNotEmpty()) add(
-                            HomeRow("Top 10 Hindi Movies on $label", "Trending with Hindi audio", movies, ranked = true)
-                        )
-                        if (series.isNotEmpty()) add(
-                            HomeRow("Top 10 Hindi Web Series on $label", "Popular Indian series", series, ranked = true)
-                        )
+                    if (pSeries.isNotEmpty()) {
+                        add(HomeRow("Top Web Series on $label", "Originals on $label", pSeries.take(12), category = HomeCategories.TRENDING_SERIES))
                     }
                 }
-            }.awaitAll().flatten()
+            }
+
+            val fallback = if (rows.isEmpty()) currentHomeFallback() else emptyList()
+            val finalRows = rows.ifEmpty { fallback }
+            HomeFeed(
+                featured = featuredList.ifEmpty { finalRows.flatMap { it.items }.distinctBy { it.id }.take(8) },
+                rows = finalRows
+            )
         }
 
-        val fallback = if (rows.isEmpty()) currentHomeFallback() else emptyList()
-        val finalRows = rows.ifEmpty { fallback }
-        val feed = HomeFeed(
-            featured = finalRows.flatMap { it.items }.distinctBy { it.id }.take(8),
-            rows = finalRows
-        )
         homeCache = Triple(System.currentTimeMillis(), key, feed)
         return feed
     }
@@ -385,6 +567,9 @@ class NetMirrorRepository(private val client: OkHttpClient) {
         val DEFAULT_PLATFORMS = listOf("Netflix", "PrimeVideo")
         val PLATFORMS = listOf("Netflix", "PrimeVideo", "JioHotstar", "SonyLIV", "AppleTV", "Crunchyroll", "MX")
         private val HINDI_RAIL = Regex("hindi|bollywood|indian", RegexOption.IGNORE_CASE)
+        private val ENGLISH_RAIL = Regex("hits|blockbuster|hollywood|releases|2025|2024|popular", RegexOption.IGNORE_CASE)
+        private val SERIES_RAIL = Regex("series|popular", RegexOption.IGNORE_CASE)
+        private val THRILLER_RAIL = Regex("thriller|mystery|crime", RegexOption.IGNORE_CASE)
         private const val HOME_CACHE_MS = 5 * 60 * 1000L
         private const val METADATA_CACHE_MS = 10 * 60 * 1000L
         private const val USER_AGENT = "Co-Stream/2.0 (Android)"
