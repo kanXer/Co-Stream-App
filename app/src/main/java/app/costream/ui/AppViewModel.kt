@@ -368,7 +368,15 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun back() {
-        if (screens.size > 1) screens.removeAt(screens.lastIndex)
+        if (currentScreen is Screen.Player) {
+            // Directly exit player back to whatever screen was beneath it (e.g. Detail or Home),
+            // even if multiple consecutive episodes/videos were watched.
+            while (screens.size > 1 && screens.last() is Screen.Player) {
+                screens.removeAt(screens.lastIndex)
+            }
+        } else if (screens.size > 1) {
+            screens.removeAt(screens.lastIndex)
+        }
     }
 
     fun goHome() {
@@ -386,6 +394,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun push(screen: Screen) {
-        screens.add(screen)
+        // When already playing a video and opening another video / next episode,
+        // replace the current player screen instead of stacking them up.
+        if (screen is Screen.Player && currentScreen is Screen.Player) {
+            screens[screens.lastIndex] = screen
+        } else {
+            screens.add(screen)
+        }
     }
 }
