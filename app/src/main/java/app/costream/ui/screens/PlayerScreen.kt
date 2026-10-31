@@ -222,7 +222,7 @@ fun PlayerScreen(
 
     val exoPlayer = remember {
         val dataSourceFactory = DefaultHttpDataSource.Factory()
-            .setUserAgent("Co-Stream/1.0 (Android)")
+            .setUserAgent(app.costream.data.NetMirrorRepository.USER_AGENT)
             .setConnectTimeoutMs(20_000)
             .setReadTimeoutMs(35_000)
             .apply {

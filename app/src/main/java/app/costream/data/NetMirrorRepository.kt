@@ -547,7 +547,7 @@ class NetMirrorRepository(private val client: OkHttpClient) {
             val playRequest = Request.Builder()
                 .url(playlistUrl)
                 .header("Accept", "application/json")
-                .header("User-Agent", "okhttp/4.9.2 /OS.Gatu v3.0")
+                .header("User-Agent", USER_AGENT)
                 .header("Referer", "https://net52.cc/")
                 .build()
 
@@ -565,25 +565,7 @@ class NetMirrorRepository(private val client: OkHttpClient) {
                 val s = sources.optJSONObject(i) ?: continue
                 var file = s.optString("file")
                 if (file.isBlank()) continue
-                if (file.contains("220884")) continue
                 if (file.startsWith("/")) file = "https://net52.cc$file"
-
-                // Check if this m3u8 playlist contains the 220884 dummy placeholder video
-                val isDummy = runCatching {
-                    val headReq = Request.Builder()
-                        .url(file)
-                        .header("Accept", "*/*")
-                        .header("User-Agent", "okhttp/4.9.2 /OS.Gatu v3.0")
-                        .header("Referer", "https://net52.cc/")
-                        .build()
-                    client.newCall(headReq).execute().use { resp ->
-                        if (resp.isSuccessful) {
-                            val body = resp.body?.string().orEmpty()
-                            body.contains("220884")
-                        } else false
-                    }
-                }.getOrDefault(false)
-                if (isDummy) continue
 
                 val label = s.optString("label")
                 val quality = when {
@@ -599,7 +581,7 @@ class NetMirrorRepository(private val client: OkHttpClient) {
                         label = quality,
                         quality = quality,
                         mimeType = if (file.contains(".m3u8", true)) "application/x-mpegURL" else "video/mp4",
-                        headers = mapOf("Referer" to "https://net52.cc/", "User-Agent" to "okhttp/4.9.2 /OS.Gatu v3.0")
+                        headers = mapOf("Referer" to "https://net52.cc/", "User-Agent" to USER_AGENT)
                     )
                 )
             }
@@ -648,7 +630,7 @@ class NetMirrorRepository(private val client: OkHttpClient) {
         for (index in 0 until streams.length()) {
             val stream = streams.optJSONObject(index) ?: continue
             val url = stream.optString("url")
-            if (url.isBlank() || url.contains("220884")) continue
+            if (url.isBlank()) continue
             val resolution = stream.optInt("resolution")
             result += StreamSource(
                 url = url,
@@ -751,11 +733,7 @@ class NetMirrorRepository(private val client: OkHttpClient) {
             host.contains("net52.cc") || host.contains("freecdn") || host.endsWith(".top") -> "https://net52.cc/"
             else -> "https://net27.cc/"
         }
-        val ua = if (host.contains("net52.cc") || host.contains("freecdn") || host.endsWith(".top")) {
-            "okhttp/4.9.2 /OS.Gatu v3.0"
-        } else {
-            USER_AGENT
-        }
+        val ua = USER_AGENT
         return mapOf("Referer" to referer, "User-Agent" to ua)
     }
 
@@ -783,7 +761,7 @@ class NetMirrorRepository(private val client: OkHttpClient) {
         private val HINDI_RAIL = Regex("hindi|bollywood|indian", RegexOption.IGNORE_CASE)
         private const val HOME_CACHE_MS = 5 * 60 * 1000L
         private const val METADATA_CACHE_MS = 10 * 60 * 1000L
-        private const val USER_AGENT = "Co-Stream/2.0 (Android)"
+        const val USER_AGENT = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Mobile Safari/537.36"
 
         private val NON_STREAMABLE_TMDB_IDS = setOf(15226) // C.I.D. (1998)
 
