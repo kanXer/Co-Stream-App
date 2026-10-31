@@ -986,7 +986,7 @@ class NetMirrorRepository(
             HindiItemDef(1083241, "Baby John", "2024", "https://image.tmdb.org/t/p/w185/5Oqsh17dq0cIRFPynPNy5elmyxW.jpg", 6.5),
             HindiItemDef(1257960, "Sikandar", "2025", "https://image.tmdb.org/t/p/w185/41s42CRXafa3OuRGvCtfYPEBmse.jpg", 6.5),
             HindiItemDef(1234139, "Jailer 2", "2026", "https://image.tmdb.org/t/p/w780/zpHTOdRl7GEPqFsDGqsN6Hi9Ylt.jpg", 8.0),
-            HindiItemDef(1213243, "Toxic", "2026", "https://image.tmdb.org/t/p/w780/6xK461P6yV8Xq50tK1B7z5wVf9V.jpg", 8.0),
+            HindiItemDef(1213243, "Toxic", "2026", "https://image.tmdb.org/t/p/w185/5RTd3YCLWbEhbe9OXRuNX3pbT5U.jpg", 8.0),
             HindiItemDef(857598, "Pushpa 2 - The Rule", "2024", "https://image.tmdb.org/t/p/w185/1T21FblunT0y8fz7YaW8JMYgUKm.jpg", 6.8),
             HindiItemDef(1112426, "Stree 2", "2024", "https://image.tmdb.org/t/p/w185/nfnhwfUEFuSOxxf4jDdBlY6Lccw.jpg", 7.3),
             HindiItemDef(801688, "Kalki 2898-AD", "2024", "https://image.tmdb.org/t/p/w185/rstcAnBeCkxNQjNp3YXrF6IP1tW.jpg", 7.1),
@@ -1018,13 +1018,13 @@ class NetMirrorRepository(
             HindiItemDef(496331, "Brahmāstra Part One: Shiva", "2022", "https://image.tmdb.org/t/p/w185/x61qdvHIsr9U53FwoLVDQqAGur0.jpg", 6.5),
             HindiItemDef(858485, "Kantara", "2022", "https://image.tmdb.org/t/p/w185/jIsKmkxMzdCZ0Ux1GVSnu8m6Na6.jpg", 7.4),
             HindiItemDef(599925, "Shershaah", "2021", "https://image.tmdb.org/t/p/w185/zGvFnwoXJKrYnKhoVPytqkqCJ8V.jpg", 7.8),
-            HindiItemDef(632747, "Sooryavanshi", "2021", "https://image.tmdb.org/t/p/w185/632747.jpg", 6.5),
-            HindiItemDef(580489, "Bhool Bhulaiyaa 2", "2022", "https://image.tmdb.org/t/p/w185/580489.jpg", 6.3),
+            HindiItemDef(632747, "Sooryavanshi", "2021", "https://image.tmdb.org/t/p/w185/zgEc1Tn4iKvttPUzkMOUB4BNoXK.jpg", 6.5),
+            HindiItemDef(580489, "Bhool Bhulaiyaa 2", "2022", "https://image.tmdb.org/t/p/w185/fw0oMHiMt9qOuKEJEmzFiCNAnXc.jpg", 6.3),
             HindiItemDef(848116, "Rocky Aur Rani Kii Prem Kahaani", "2023", "https://image.tmdb.org/t/p/w185/vTQIqlxUkOuyf2UKhlM2OUaFGKz.jpg", 6.7),
             HindiItemDef(799177, "Bhediya", "2022", "https://image.tmdb.org/t/p/w185/iZtq44ZmxBW0E3tAeLG6UdJe9aj.jpg", 6.8),
-            HindiItemDef(360814, "Dangal", "2016", "https://image.tmdb.org/t/p/w185/360814.jpg", 8.1),
-            HindiItemDef(346648, "Bajrangi Bhaijaan", "2015", "https://image.tmdb.org/t/p/w185/346648.jpg", 7.9),
-            HindiItemDef(585268, "War", "2019", "https://image.tmdb.org/t/p/w185/585268.jpg", 6.9)
+            HindiItemDef(360814, "Dangal", "2016", "https://image.tmdb.org/t/p/w185/cJRPOLEexI7qp2DKtFfCh7YaaUG.jpg", 8.1),
+            HindiItemDef(346648, "Bajrangi Bhaijaan", "2015", "https://image.tmdb.org/t/p/w185/vhlliI7HZZlWfo5d6CiyfBAGLrW.jpg", 7.9),
+            HindiItemDef(585268, "War", "2019", "https://image.tmdb.org/t/p/w185/yUtaHkL2SDIAZhRApZAyQrAXygn.jpg", 6.9)
         )
 
         val CURATED_HINDI_ACTION = listOf(
@@ -1050,11 +1050,11 @@ class NetMirrorRepository(
             HindiItemDef(984101, "Bad Newz", "2024", "https://image.tmdb.org/t/p/w185/qDlqxGATpYBWqGciPB4tmQm3bFT.jpg", 5.5),
             HindiItemDef(1187058, "Munjya", "2024", "https://image.tmdb.org/t/p/w185/ylYdXu0SM79Qs7vOz6q7mBxanVD.jpg", 6.5),
             HindiItemDef(960876, "Dunki", "2023", "https://image.tmdb.org/t/p/w185/kPRb1mbVHGop0egQ7153y0lhzGL.jpg", 6.8),
-            HindiItemDef(580489, "Bhool Bhulaiyaa 2", "2022", "https://image.tmdb.org/t/p/w185/580489.jpg", 6.3),
+            HindiItemDef(580489, "Bhool Bhulaiyaa 2", "2022", "https://image.tmdb.org/t/p/w185/fw0oMHiMt9qOuKEJEmzFiCNAnXc.jpg", 6.3),
             HindiItemDef(848116, "Rocky Aur Rani Kii Prem Kahaani", "2023", "https://image.tmdb.org/t/p/w185/vTQIqlxUkOuyf2UKhlM2OUaFGKz.jpg", 6.7),
-            HindiItemDef(20453, "3 Idiots", "2009", "https://image.tmdb.org/t/p/w185/20453.jpg", 8.4),
-            HindiItemDef(297222, "PK", "2014", "https://image.tmdb.org/t/p/w185/297222.jpg", 7.7),
-            HindiItemDef(592834, "Chhichhore", "2019", "https://image.tmdb.org/t/p/w185/592834.jpg", 7.5)
+            HindiItemDef(20453, "3 Idiots", "2009", "https://image.tmdb.org/t/p/w185/66A9MqXOyVFCssoloscw79z8Tew.jpg", 8.4),
+            HindiItemDef(297222, "PK", "2014", "https://image.tmdb.org/t/p/w185/z2x2Y4tncefsIU7h82gmUM5vnBJ.jpg", 7.7),
+            HindiItemDef(592834, "Chhichhore", "2019", "https://image.tmdb.org/t/p/w185/56snL7jpuKS80WBSXJCg59XdvM3.jpg", 7.5)
         )
 
         val CURATED_HINDI_THRILLER = listOf(
@@ -1062,22 +1062,22 @@ class NetMirrorRepository(
             HindiItemDef(1187619, "Shaitaan", "2024", "https://image.tmdb.org/t/p/w185/oRvFzcagAcC6Q317xtV7QXzwBnj.jpg", 6.7),
             HindiItemDef(1233531, "Article 370", "2024", "https://image.tmdb.org/t/p/w185/9VTemjHMpyxzfC3JsG2aFy8Bf9Y.jpg", 7.2),
             HindiItemDef(896350, "Merry Christmas", "2024", "https://image.tmdb.org/t/p/w185/d2e1B4r8l8k3N5b7C9a1M4w7P2y.jpg", 7.0),
-            HindiItemDef(748783, "The Kashmir Files", "2022", "https://image.tmdb.org/t/p/w185/748783.jpg", 7.2),
-            HindiItemDef(534780, "Andhadhun", "2018", "https://image.tmdb.org/t/p/w185/534780.jpg", 8.2),
-            HindiItemDef(559907, "Badla", "2019", "https://image.tmdb.org/t/p/w185/559907.jpg", 7.1),
-            HindiItemDef(341012, "Drishyam", "2015", "https://image.tmdb.org/t/p/w185/341012.jpg", 8.3),
-            HindiItemDef(509967, "Raazi", "2018", "https://image.tmdb.org/t/p/w185/509967.jpg", 7.7)
+            HindiItemDef(748783, "The Kashmir Files", "2022", "https://image.tmdb.org/t/p/w185/2VvjJFDBFYkVgr89BjqbUl26QyW.jpg", 7.2),
+            HindiItemDef(534780, "Andhadhun", "2018", "https://image.tmdb.org/t/p/w185/dy3K6hNvwE05siGgiLJcEiwgpdO.jpg", 8.2),
+            HindiItemDef(559907, "Badla", "2019", "https://image.tmdb.org/t/p/w185/cl8qaliwax7BvJg1AnxIca832F7.jpg", 7.1),
+            HindiItemDef(341012, "Drishyam", "2015", "https://image.tmdb.org/t/p/w185/gIClWRv5OSe8rl5Koi0AeUcCZ9Z.jpg", 8.3),
+            HindiItemDef(509967, "Raazi", "2018", "https://image.tmdb.org/t/p/w185/l9VJoRj0CYBURsnetvazq73FOfz.jpg", 7.7)
         )
 
         val CURATED_HINDI_ROMANCE = listOf(
             HindiItemDef(848116, "Rocky Aur Rani Kii Prem Kahaani", "2023", "https://image.tmdb.org/t/p/w185/vTQIqlxUkOuyf2UKhlM2OUaFGKz.jpg", 6.7),
             HindiItemDef(1072790, "Teri Baaton Mein Aisa Uljha Jiya", "2024", "https://image.tmdb.org/t/p/w185/2gL8d3k5l8w4m1p7n2b9c5v8x4y.jpg", 6.2),
-            HindiItemDef(828559, "Sita Ramam", "2022", "https://image.tmdb.org/t/p/w185/828559.jpg", 8.2),
+            HindiItemDef(828559, "Sita Ramam", "2022", "https://image.tmdb.org/t/p/w185/t1O94ZBzsQXJihtVkrsStRLyUDR.jpg", 8.2),
             HindiItemDef(599925, "Shershaah", "2021", "https://image.tmdb.org/t/p/w185/zGvFnwoXJKrYnKhoVPytqkqCJ8V.jpg", 7.8),
-            HindiItemDef(537915, "Kabir Singh", "2019", "https://image.tmdb.org/t/p/w185/537915.jpg", 6.9),
-            HindiItemDef(184341, "Yeh Jawaani Hai Deewani", "2013", "https://image.tmdb.org/t/p/w185/184341.jpg", 7.2),
-            HindiItemDef(14729, "Jab We Met", "2007", "https://image.tmdb.org/t/p/w185/14729.jpg", 7.8),
-            HindiItemDef(206, "Dilwale Dulhania Le Jayenge", "1995", "https://image.tmdb.org/t/p/w185/206.jpg", 8.6)
+            HindiItemDef(537915, "Kabir Singh", "2019", "https://image.tmdb.org/t/p/w185/iHPF4rt8HTuDZzNH1L2FCiPzN48.jpg", 6.9),
+            HindiItemDef(184341, "Yeh Jawaani Hai Deewani", "2013", "https://image.tmdb.org/t/p/w185/em39H81XLCDgXsI7V4IcBZseEO6.jpg", 7.2),
+            HindiItemDef(14729, "Jab We Met", "2007", "https://image.tmdb.org/t/p/w185/sQ7A7jyTbkK90vjd8yCRuoyL9CK.jpg", 7.8),
+            HindiItemDef(206, "Dilwale Dulhania Le Jayenge", "1995", "https://image.tmdb.org/t/p/w185/lfRkUr7DYdHldAqi3PwdQGBRBPM.jpg", 8.6)
         )
 
         val CURATED_HINDI_HORROR = listOf(
@@ -1085,62 +1085,62 @@ class NetMirrorRepository(
             HindiItemDef(980599, "Bhool Bhulaiyaa 3", "2024", "https://image.tmdb.org/t/p/w185/3AfHD1HoaQpQwKH8kxRdBKVmzeU.jpg", 6.0),
             HindiItemDef(1187058, "Munjya", "2024", "https://image.tmdb.org/t/p/w185/ylYdXu0SM79Qs7vOz6q7mBxanVD.jpg", 6.5),
             HindiItemDef(1187619, "Shaitaan", "2024", "https://image.tmdb.org/t/p/w185/oRvFzcagAcC6Q317xtV7QXzwBnj.jpg", 6.7),
-            HindiItemDef(580489, "Bhool Bhulaiyaa 2", "2022", "https://image.tmdb.org/t/p/w185/580489.jpg", 6.3),
+            HindiItemDef(580489, "Bhool Bhulaiyaa 2", "2022", "https://image.tmdb.org/t/p/w185/fw0oMHiMt9qOuKEJEmzFiCNAnXc.jpg", 6.3),
             HindiItemDef(799177, "Bhediya", "2022", "https://image.tmdb.org/t/p/w185/iZtq44ZmxBW0E3tAeLG6UdJe9aj.jpg", 6.8),
-            HindiItemDef(538858, "Tumbbad", "2018", "https://image.tmdb.org/t/p/w185/538858.jpg", 8.2),
-            HindiItemDef(488661, "Pari", "2018", "https://image.tmdb.org/t/p/w185/488661.jpg", 6.6),
-            HindiItemDef(14856, "1920", "2008", "https://image.tmdb.org/t/p/w185/14856.jpg", 6.5)
+            HindiItemDef(538858, "Tumbbad", "2018", "https://image.tmdb.org/t/p/w185/z1xOCxw780WFJC5uCTMfCkQ4Agi.jpg", 8.2),
+            HindiItemDef(488661, "Pari", "2018", "https://image.tmdb.org/t/p/w185/AgkjdSuzpVyyReDcdkevFRTIztm.jpg", 6.6),
+            HindiItemDef(14856, "1920", "2008", "https://image.tmdb.org/t/p/w185/i9rva37n3B27xHmcur8oxW8Ludi.jpg", 6.5)
         )
 
         val CURATED_HINDI_SCIFI = listOf(
             HindiItemDef(801688, "Kalki 2898-AD", "2024", "https://image.tmdb.org/t/p/w185/rstcAnBeCkxNQjNp3YXrF6IP1tW.jpg", 7.1),
             HindiItemDef(496331, "Brahmāstra Part One: Shiva", "2022", "https://image.tmdb.org/t/p/w185/x61qdvHIsr9U53FwoLVDQqAGur0.jpg", 6.5),
-            HindiItemDef(74534, "Ra.One", "2011", "https://image.tmdb.org/t/p/w185/74534.jpg", 5.5),
-            HindiItemDef(200727, "Krrish 3", "2013", "https://image.tmdb.org/t/p/w185/200727.jpg", 5.8),
-            HindiItemDef(25189, "Koi... Mil Gaya", "2003", "https://image.tmdb.org/t/p/w185/25189.jpg", 7.1),
-            HindiItemDef(438674, "2.0", "2018", "https://image.tmdb.org/t/p/w185/438674.jpg", 6.1)
+            HindiItemDef(74534, "Ra.One", "2011", "https://image.tmdb.org/t/p/w185/qwC3rbgCI0frJpRxVm74Ak3ktpU.jpg", 5.5),
+            HindiItemDef(200727, "Krrish 3", "2013", "https://image.tmdb.org/t/p/w185/tuHHTj59CNXGhI9eRZM47aa3zuC.jpg", 5.8),
+            HindiItemDef(25189, "Koi... Mil Gaya", "2003", "https://image.tmdb.org/t/p/w185/2iJVauDYcYxRRGciTmAOSjiATf9.jpg", 7.1),
+            HindiItemDef(438674, "2.0", "2018", "https://image.tmdb.org/t/p/w185/9nLBX5Bf7PW4FAaWJLXpFFdeTlV.jpg", 6.1)
         )
 
         val CURATED_HINDI_FAMILY = listOf(
-            HindiItemDef(20453, "3 Idiots", "2009", "https://image.tmdb.org/t/p/w185/20453.jpg", 8.4),
-            HindiItemDef(346648, "Bajrangi Bhaijaan", "2015", "https://image.tmdb.org/t/p/w185/346648.jpg", 7.9),
-            HindiItemDef(360814, "Dangal", "2016", "https://image.tmdb.org/t/p/w185/360814.jpg", 8.1),
+            HindiItemDef(20453, "3 Idiots", "2009", "https://image.tmdb.org/t/p/w185/66A9MqXOyVFCssoloscw79z8Tew.jpg", 8.4),
+            HindiItemDef(346648, "Bajrangi Bhaijaan", "2015", "https://image.tmdb.org/t/p/w185/vhlliI7HZZlWfo5d6CiyfBAGLrW.jpg", 7.9),
+            HindiItemDef(360814, "Dangal", "2016", "https://image.tmdb.org/t/p/w185/cJRPOLEexI7qp2DKtFfCh7YaaUG.jpg", 8.1),
             HindiItemDef(1163258, "12th Fail", "2023", "https://image.tmdb.org/t/p/w185/eebUPRI4Z5e1Z7Hev4JZAwMIFkX.jpg", 8.3),
-            HindiItemDef(592834, "Chhichhore", "2019", "https://image.tmdb.org/t/p/w185/592834.jpg", 7.5),
-            HindiItemDef(297222, "PK", "2014", "https://image.tmdb.org/t/p/w185/297222.jpg", 7.7)
+            HindiItemDef(592834, "Chhichhore", "2019", "https://image.tmdb.org/t/p/w185/56snL7jpuKS80WBSXJCg59XdvM3.jpg", 7.5),
+            HindiItemDef(297222, "PK", "2014", "https://image.tmdb.org/t/p/w185/z2x2Y4tncefsIU7h82gmUM5vnBJ.jpg", 7.7)
         )
 
         val CURATED_HINDI_SERIES_LIST = listOf(
-            HindiItemDef(79141, "Sacred Games", "2018", "https://image.tmdb.org/t/p/w185/79141.jpg", 8.1, mediaType = "tv"),
-            HindiItemDef(84661, "Mirzapur", "2018", "https://image.tmdb.org/t/p/w185/84661.jpg", 8.4, mediaType = "tv"),
-            HindiItemDef(93405, "The Family Man", "2019", "https://image.tmdb.org/t/p/w185/93405.jpg", 8.6, mediaType = "tv"),
-            HindiItemDef(101344, "Panchayat", "2020", "https://image.tmdb.org/t/p/w185/101344.jpg", 8.7, mediaType = "tv"),
-            HindiItemDef(103222, "Paatal Lok", "2020", "https://image.tmdb.org/t/p/w185/103222.jpg", 8.0, mediaType = "tv"),
-            HindiItemDef(200843, "Farzi", "2023", "https://image.tmdb.org/t/p/w185/200843.jpg", 8.2, mediaType = "tv"),
-            HindiItemDef(88040, "Delhi Crime", "2019", "https://image.tmdb.org/t/p/w185/88040.jpg", 8.4, mediaType = "tv"),
-            HindiItemDef(88584, "Kota Factory", "2019", "https://image.tmdb.org/t/p/w185/88584.jpg", 8.5, mediaType = "tv"),
-            HindiItemDef(112888, "Mismatched", "2020", "https://image.tmdb.org/t/p/w185/112888.jpg", 7.2, mediaType = "tv"),
-            HindiItemDef(133701, "Rana Naidu", "2023", "https://image.tmdb.org/t/p/w185/133701.jpg", 6.5, mediaType = "tv"),
-            HindiItemDef(97893, "Jamtara – Sabka Number Ayega", "2020", "https://image.tmdb.org/t/p/w185/97893.jpg", 7.6, mediaType = "tv"),
-            HindiItemDef(238310, "The Railway Men", "2023", "https://image.tmdb.org/t/p/w185/238310.jpg", 8.1, mediaType = "tv"),
-            HindiItemDef(247169, "Maamla Legal Hai", "2024", "https://image.tmdb.org/t/p/w185/247169.jpg", 7.5, mediaType = "tv"),
-            HindiItemDef(99966, "Asur", "2020", "https://image.tmdb.org/t/p/w185/99966.jpg", 8.4, mediaType = "tv")
+            HindiItemDef(79141, "Sacred Games", "2018", "https://image.tmdb.org/t/p/w185/uEbNtFbK4At9WBDGap23lt1qO9n.jpg", 8.1, mediaType = "tv"),
+            HindiItemDef(84661, "Mirzapur", "2018", "https://image.tmdb.org/t/p/w185/p0qM8hhlMF5DuxHBzl2EZR6TehX.jpg", 8.4, mediaType = "tv"),
+            HindiItemDef(93405, "The Family Man", "2019", "https://image.tmdb.org/t/p/w185/9wToOVsKuf0XeKhlauzCa3D8Gui.jpg", 8.6, mediaType = "tv"),
+            HindiItemDef(101344, "Panchayat", "2020", "https://image.tmdb.org/t/p/w185/8ivTX5q2otqXvH815BcOhxVkTPW.jpg", 8.7, mediaType = "tv"),
+            HindiItemDef(103222, "Paatal Lok", "2020", "https://image.tmdb.org/t/p/w185/8Hcq3HoJE4shH7BWkp9UNSFCE3O.jpg", 8.0, mediaType = "tv"),
+            HindiItemDef(200843, "Farzi", "2023", "https://image.tmdb.org/t/p/w185/cTS86RwEBIDgCgUmjWQTSoPsK6p.jpg", 8.2, mediaType = "tv"),
+            HindiItemDef(88040, "Delhi Crime", "2019", "https://image.tmdb.org/t/p/w185/xkpkTj6KGsjSaet0VQaq0aTn31D.jpg", 8.4, mediaType = "tv"),
+            HindiItemDef(88584, "Kota Factory", "2019", "https://image.tmdb.org/t/p/w185/fMBookmwL6HjIgIVTjQ6EMr3pCH.jpg", 8.5, mediaType = "tv"),
+            HindiItemDef(112888, "Mismatched", "2020", "https://image.tmdb.org/t/p/w185/l65kfL6qhTWd858OqGTr3RWwAUj.jpg", 7.2, mediaType = "tv"),
+            HindiItemDef(133701, "Rana Naidu", "2023", "https://image.tmdb.org/t/p/w185/4kUF7cO76W4vEx70KVfwmju6Vud.jpg", 6.5, mediaType = "tv"),
+            HindiItemDef(97893, "Jamtara – Sabka Number Ayega", "2020", "https://image.tmdb.org/t/p/w185/wqWsyazYqBceNMyRIg9q8HSJEcw.jpg", 7.6, mediaType = "tv"),
+            HindiItemDef(238310, "The Railway Men", "2023", "https://image.tmdb.org/t/p/w185/kOYlMHtNSqnf1FgsoK1JJypfkrY.jpg", 8.1, mediaType = "tv"),
+            HindiItemDef(247169, "Maamla Legal Hai", "2024", "https://image.tmdb.org/t/p/w185/tDP5vC5wxSpHKx88RdyRpdaSo2u.jpg", 7.5, mediaType = "tv"),
+            HindiItemDef(99966, "Asur", "2020", "https://image.tmdb.org/t/p/w185/hJn71rU1VXNJpAMiWwvSxxaFU00.jpg", 8.4, mediaType = "tv")
         )
 
         val CURATED_HINDI_ACTION_SERIES = listOf(
-            HindiItemDef(79141, "Sacred Games", "2018", "https://image.tmdb.org/t/p/w185/79141.jpg", 8.1, mediaType = "tv"),
-            HindiItemDef(84661, "Mirzapur", "2018", "https://image.tmdb.org/t/p/w185/84661.jpg", 8.4, mediaType = "tv"),
-            HindiItemDef(93405, "The Family Man", "2019", "https://image.tmdb.org/t/p/w185/93405.jpg", 8.6, mediaType = "tv"),
-            HindiItemDef(200843, "Farzi", "2023", "https://image.tmdb.org/t/p/w185/200843.jpg", 8.2, mediaType = "tv"),
-            HindiItemDef(133701, "Rana Naidu", "2023", "https://image.tmdb.org/t/p/w185/133701.jpg", 6.5, mediaType = "tv")
+            HindiItemDef(79141, "Sacred Games", "2018", "https://image.tmdb.org/t/p/w185/uEbNtFbK4At9WBDGap23lt1qO9n.jpg", 8.1, mediaType = "tv"),
+            HindiItemDef(84661, "Mirzapur", "2018", "https://image.tmdb.org/t/p/w185/p0qM8hhlMF5DuxHBzl2EZR6TehX.jpg", 8.4, mediaType = "tv"),
+            HindiItemDef(93405, "The Family Man", "2019", "https://image.tmdb.org/t/p/w185/9wToOVsKuf0XeKhlauzCa3D8Gui.jpg", 8.6, mediaType = "tv"),
+            HindiItemDef(200843, "Farzi", "2023", "https://image.tmdb.org/t/p/w185/cTS86RwEBIDgCgUmjWQTSoPsK6p.jpg", 8.2, mediaType = "tv"),
+            HindiItemDef(133701, "Rana Naidu", "2023", "https://image.tmdb.org/t/p/w185/4kUF7cO76W4vEx70KVfwmju6Vud.jpg", 6.5, mediaType = "tv")
         )
 
         val CURATED_HINDI_CRIME_SERIES = listOf(
-            HindiItemDef(88040, "Delhi Crime", "2019", "https://image.tmdb.org/t/p/w185/88040.jpg", 8.4, mediaType = "tv"),
-            HindiItemDef(103222, "Paatal Lok", "2020", "https://image.tmdb.org/t/p/w185/103222.jpg", 8.0, mediaType = "tv"),
-            HindiItemDef(99966, "Asur", "2020", "https://image.tmdb.org/t/p/w185/99966.jpg", 8.4, mediaType = "tv"),
-            HindiItemDef(97893, "Jamtara – Sabka Number Ayega", "2020", "https://image.tmdb.org/t/p/w185/97893.jpg", 7.6, mediaType = "tv"),
-            HindiItemDef(200843, "Farzi", "2023", "https://image.tmdb.org/t/p/w185/200843.jpg", 8.2, mediaType = "tv")
+            HindiItemDef(88040, "Delhi Crime", "2019", "https://image.tmdb.org/t/p/w185/xkpkTj6KGsjSaet0VQaq0aTn31D.jpg", 8.4, mediaType = "tv"),
+            HindiItemDef(103222, "Paatal Lok", "2020", "https://image.tmdb.org/t/p/w185/8Hcq3HoJE4shH7BWkp9UNSFCE3O.jpg", 8.0, mediaType = "tv"),
+            HindiItemDef(99966, "Asur", "2020", "https://image.tmdb.org/t/p/w185/hJn71rU1VXNJpAMiWwvSxxaFU00.jpg", 8.4, mediaType = "tv"),
+            HindiItemDef(97893, "Jamtara – Sabka Number Ayega", "2020", "https://image.tmdb.org/t/p/w185/wqWsyazYqBceNMyRIg9q8HSJEcw.jpg", 7.6, mediaType = "tv"),
+            HindiItemDef(200843, "Farzi", "2023", "https://image.tmdb.org/t/p/w185/cTS86RwEBIDgCgUmjWQTSoPsK6p.jpg", 8.2, mediaType = "tv")
         )
 
         val CURATED_NETFLIX_HINDI_MOVIES = listOf(
@@ -1152,18 +1152,18 @@ class NetMirrorRepository(
             HindiItemDef(960876, "Dunki", "2023", "https://image.tmdb.org/t/p/w185/kPRb1mbVHGop0egQ7153y0lhzGL.jpg", 6.8),
             HindiItemDef(781732, "Animal", "2023", "https://image.tmdb.org/t/p/w185/hr9rjR3J0xBBKmlJ4n3gHId9ccx.jpg", 6.8),
             HindiItemDef(1163258, "12th Fail", "2023", "https://image.tmdb.org/t/p/w185/eebUPRI4Z5e1Z7Hev4JZAwMIFkX.jpg", 8.3),
-            HindiItemDef(580489, "Bhool Bhulaiyaa 2", "2022", "https://image.tmdb.org/t/p/w185/580489.jpg", 6.3)
+            HindiItemDef(580489, "Bhool Bhulaiyaa 2", "2022", "https://image.tmdb.org/t/p/w185/fw0oMHiMt9qOuKEJEmzFiCNAnXc.jpg", 6.3)
         )
 
         val CURATED_NETFLIX_HINDI_SERIES = listOf(
-            HindiItemDef(79141, "Sacred Games", "2018", "https://image.tmdb.org/t/p/w185/79141.jpg", 8.1, mediaType = "tv"),
-            HindiItemDef(88040, "Delhi Crime", "2019", "https://image.tmdb.org/t/p/w185/88040.jpg", 8.4, mediaType = "tv"),
-            HindiItemDef(238310, "The Railway Men", "2023", "https://image.tmdb.org/t/p/w185/238310.jpg", 8.1, mediaType = "tv"),
-            HindiItemDef(88584, "Kota Factory", "2019", "https://image.tmdb.org/t/p/w185/88584.jpg", 8.5, mediaType = "tv"),
-            HindiItemDef(247169, "Maamla Legal Hai", "2024", "https://image.tmdb.org/t/p/w185/247169.jpg", 7.5, mediaType = "tv"),
-            HindiItemDef(112888, "Mismatched", "2020", "https://image.tmdb.org/t/p/w185/112888.jpg", 7.2, mediaType = "tv"),
-            HindiItemDef(133701, "Rana Naidu", "2023", "https://image.tmdb.org/t/p/w185/133701.jpg", 6.5, mediaType = "tv"),
-            HindiItemDef(97893, "Jamtara – Sabka Number Ayega", "2020", "https://image.tmdb.org/t/p/w185/97893.jpg", 7.6, mediaType = "tv")
+            HindiItemDef(79141, "Sacred Games", "2018", "https://image.tmdb.org/t/p/w185/uEbNtFbK4At9WBDGap23lt1qO9n.jpg", 8.1, mediaType = "tv"),
+            HindiItemDef(88040, "Delhi Crime", "2019", "https://image.tmdb.org/t/p/w185/xkpkTj6KGsjSaet0VQaq0aTn31D.jpg", 8.4, mediaType = "tv"),
+            HindiItemDef(238310, "The Railway Men", "2023", "https://image.tmdb.org/t/p/w185/kOYlMHtNSqnf1FgsoK1JJypfkrY.jpg", 8.1, mediaType = "tv"),
+            HindiItemDef(88584, "Kota Factory", "2019", "https://image.tmdb.org/t/p/w185/fMBookmwL6HjIgIVTjQ6EMr3pCH.jpg", 8.5, mediaType = "tv"),
+            HindiItemDef(247169, "Maamla Legal Hai", "2024", "https://image.tmdb.org/t/p/w185/tDP5vC5wxSpHKx88RdyRpdaSo2u.jpg", 7.5, mediaType = "tv"),
+            HindiItemDef(112888, "Mismatched", "2020", "https://image.tmdb.org/t/p/w185/l65kfL6qhTWd858OqGTr3RWwAUj.jpg", 7.2, mediaType = "tv"),
+            HindiItemDef(133701, "Rana Naidu", "2023", "https://image.tmdb.org/t/p/w185/4kUF7cO76W4vEx70KVfwmju6Vud.jpg", 6.5, mediaType = "tv"),
+            HindiItemDef(97893, "Jamtara – Sabka Number Ayega", "2020", "https://image.tmdb.org/t/p/w185/wqWsyazYqBceNMyRIg9q8HSJEcw.jpg", 7.6, mediaType = "tv")
         )
 
         val CURATED_PRIME_HINDI_MOVIES = listOf(
@@ -1179,11 +1179,11 @@ class NetMirrorRepository(
         )
 
         val CURATED_PRIME_HINDI_SERIES = listOf(
-            HindiItemDef(84661, "Mirzapur", "2018", "https://image.tmdb.org/t/p/w185/84661.jpg", 8.4, mediaType = "tv"),
-            HindiItemDef(93405, "The Family Man", "2019", "https://image.tmdb.org/t/p/w185/93405.jpg", 8.6, mediaType = "tv"),
-            HindiItemDef(101344, "Panchayat", "2020", "https://image.tmdb.org/t/p/w185/101344.jpg", 8.7, mediaType = "tv"),
-            HindiItemDef(103222, "Paatal Lok", "2020", "https://image.tmdb.org/t/p/w185/103222.jpg", 8.0, mediaType = "tv"),
-            HindiItemDef(200843, "Farzi", "2023", "https://image.tmdb.org/t/p/w185/200843.jpg", 8.2, mediaType = "tv")
+            HindiItemDef(84661, "Mirzapur", "2018", "https://image.tmdb.org/t/p/w185/p0qM8hhlMF5DuxHBzl2EZR6TehX.jpg", 8.4, mediaType = "tv"),
+            HindiItemDef(93405, "The Family Man", "2019", "https://image.tmdb.org/t/p/w185/9wToOVsKuf0XeKhlauzCa3D8Gui.jpg", 8.6, mediaType = "tv"),
+            HindiItemDef(101344, "Panchayat", "2020", "https://image.tmdb.org/t/p/w185/8ivTX5q2otqXvH815BcOhxVkTPW.jpg", 8.7, mediaType = "tv"),
+            HindiItemDef(103222, "Paatal Lok", "2020", "https://image.tmdb.org/t/p/w185/8Hcq3HoJE4shH7BWkp9UNSFCE3O.jpg", 8.0, mediaType = "tv"),
+            HindiItemDef(200843, "Farzi", "2023", "https://image.tmdb.org/t/p/w185/cTS86RwEBIDgCgUmjWQTSoPsK6p.jpg", 8.2, mediaType = "tv")
         )
 
         val CURATED_HINDI_SPOTLIGHT = listOf(
@@ -1205,8 +1205,8 @@ class NetMirrorRepository(
                 mediaType = "movie",
                 title = "Toxic",
                 description = "A fairy tale for grown-ups set against the backdrop of the drug mafia.",
-                posterUrl = "https://image.tmdb.org/t/p/w780/z0G78R6q4kX88g7bA7z8a2uN4j2.jpg",
-                backdropUrl = "https://image.tmdb.org/t/p/original/z0G78R6q4kX88g7bA7z8a2uN4j2.jpg",
+                posterUrl = "https://image.tmdb.org/t/p/w780/5RTd3YCLWbEhbe9OXRuNX3pbT5U.jpg",
+                backdropUrl = "https://image.tmdb.org/t/p/original/tBRSSfgqOAq7YlG8udcoJIBm2FG.jpg",
                 year = "2026",
                 badge = "🎬 LATEST RELEASE",
                 provider = "Co-Stream"
@@ -1217,8 +1217,8 @@ class NetMirrorRepository(
                 mediaType = "movie",
                 title = "War 2",
                 description = "Major Kabir Dhaliwal faces an unprecedented challenge when a rogue operative with unmatched tactical skills threatens national security.",
-                posterUrl = "https://image.tmdb.org/t/p/w780/j8C8mE43X5g2sY7a6a4z5a8c2d1.jpg",
-                backdropUrl = "https://image.tmdb.org/t/p/original/j8C8mE43X5g2sY7a6a4z5a8c2d1.jpg",
+                posterUrl = "https://image.tmdb.org/t/p/w780/pKIRUTnwY3YYU9urSdsuobdcliP.jpg",
+                backdropUrl = "https://image.tmdb.org/t/p/original/pKIRUTnwY3YYU9urSdsuobdcliP.jpg",
                 year = "2025",
                 badge = "🎬 LATEST RELEASE",
                 provider = "Co-Stream"
@@ -1229,8 +1229,8 @@ class NetMirrorRepository(
                 mediaType = "movie",
                 title = "Pushpa 2 - The Rule",
                 description = "Pushpa Raj continues to reign supreme over the red sanders syndicate, taking on ruthless foes and law enforcement alike.",
-                posterUrl = "https://image.tmdb.org/t/p/w780/vG2stbB5rMR371aTzN4A3R1a8.jpg",
-                backdropUrl = "https://image.tmdb.org/t/p/original/vG2stbB5rMR371aTzN4A3R1a8.jpg",
+                posterUrl = "https://image.tmdb.org/t/p/w780/1T21FblunT0y8fz7YaW8JMYgUKm.jpg",
+                backdropUrl = "https://image.tmdb.org/t/p/original/1T21FblunT0y8fz7YaW8JMYgUKm.jpg",
                 year = "2024",
                 badge = "🎬 LATEST RELEASE",
                 provider = "Co-Stream"
@@ -1241,8 +1241,8 @@ class NetMirrorRepository(
                 mediaType = "movie",
                 title = "Stree 2",
                 description = "The town of Chanderi is haunted once again, this time by a headless entity named Sarkata abducting progressive women.",
-                posterUrl = "https://image.tmdb.org/t/p/w780/m9EtB2Zc2yL4u4O9h5D3s4b8.jpg",
-                backdropUrl = "https://image.tmdb.org/t/p/original/m9EtB2Zc2yL4u4O9h5D3s4b8.jpg",
+                posterUrl = "https://image.tmdb.org/t/p/w780/nfnhwfUEFuSOxxf4jDdBlY6Lccw.jpg",
+                backdropUrl = "https://image.tmdb.org/t/p/original/nfnhwfUEFuSOxxf4jDdBlY6Lccw.jpg",
                 year = "2024",
                 badge = "🎬 LATEST RELEASE",
                 provider = "Co-Stream"
