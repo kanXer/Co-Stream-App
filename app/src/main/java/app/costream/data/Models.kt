@@ -87,6 +87,13 @@ object HomeCategories {
     const val GLOBAL_SERIES = "global_series"
     const val KDRAMA_SERIES = "kdrama_series"
     const val ANIME_SERIES = "anime_series"
+    const val ACTION_MOVIES = "action_movies"
+    const val COMEDY_MOVIES = "comedy_movies"
+    const val THRILLER_MOVIES = "thriller_movies"
+    const val ROMANCE_MOVIES = "romance_movies"
+    const val CRIME_SERIES = "crime_series"
+    const val HORROR = "horror"
+    const val SCIFI = "scifi"
 }
 
 data class HomeRow(

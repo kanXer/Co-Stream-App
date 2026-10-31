@@ -90,10 +90,33 @@ fun HomeScreen(
     var selectedCategory by remember(selectedTab) { mutableStateOf("All") }
 
     val movieCategories = remember {
-        listOf("All", "🔥 Latest (Hindi & English)", "🎬 Hindi Movies", "🍿 English Movies")
+        listOf(
+            "All",
+            "🆕 Latest Hindi",
+            "🎬 2026 Bollywood",
+            "🔥 Most Popular",
+            "⭐ Top Rated",
+            "💥 Action",
+            "🔪 Thrillers",
+            "💕 Romance",
+            "😂 Comedy",
+            "👨‍👩‍👧 Family",
+            "🚀 Sci-Fi"
+        )
     }
     val seriesCategories = remember {
-        listOf("All", "🔥 Trending", "🇮🇳 Hindi Series", "⚡ Thrillers", "🌍 Hollywood", "🌸 K-Drama", "⚔️ Anime")
+        listOf(
+            "All",
+            "🆕 Latest Hindi",
+            "🔥 Most Popular",
+            "⭐ Top Rated",
+            "💥 Action",
+            "🕵️ Crime",
+            "👻 Horror",
+            "🌸 K-Drama",
+            "⚔️ Anime",
+            "🌍 Hollywood"
+        )
     }
 
     Box(Modifier.fillMaxSize().background(Ink)) {
@@ -130,9 +153,16 @@ fun HomeScreen(
                                 .map { it.copy(items = it.items.filterNot { item -> item.isSeries }) }
                                 .filter { it.items.isNotEmpty() }
                             when (selectedCategory) {
-                                "🔥 Latest (Hindi & English)" -> movieRows.filter { it.category == HomeCategories.LATEST_MOVIES || it.title.contains("Latest Movies", ignoreCase = true) }
-                                "🎬 Hindi Movies" -> movieRows.filter { it.category == HomeCategories.HINDI_MOVIES || it.title.contains("Hindi", ignoreCase = true) }
-                                "🍿 English Movies" -> movieRows.filter { it.category == HomeCategories.ENGLISH_MOVIES || it.title.contains("English", ignoreCase = true) || it.title.contains("Hollywood", ignoreCase = true) }
+                                "🆕 Latest Hindi" -> movieRows.filter { it.title.contains("Latest Hindi", ignoreCase = true) || it.category == HomeCategories.LATEST_MOVIES }
+                                "🎬 2026 Bollywood" -> movieRows.filter { it.title.contains("Bollywood", ignoreCase = true) || it.title.contains("2026", ignoreCase = true) }
+                                "🔥 Most Popular" -> movieRows.filter { it.title.contains("Popular", ignoreCase = true) }
+                                "⭐ Top Rated" -> movieRows.filter { it.title.contains("Top Rated", ignoreCase = true) }
+                                "💥 Action" -> movieRows.filter { it.category == HomeCategories.ACTION_MOVIES || it.title.contains("Action", ignoreCase = true) }
+                                "🔪 Thrillers" -> movieRows.filter { it.category == HomeCategories.THRILLER_MOVIES || it.title.contains("Thriller", ignoreCase = true) }
+                                "💕 Romance" -> movieRows.filter { it.category == HomeCategories.ROMANCE_MOVIES || it.title.contains("Romance", ignoreCase = true) }
+                                "😂 Comedy" -> movieRows.filter { it.category == HomeCategories.COMEDY_MOVIES || it.title.contains("Comedy", ignoreCase = true) }
+                                "👨‍👩‍👧 Family" -> movieRows.filter { it.title.contains("Family", ignoreCase = true) }
+                                "🚀 Sci-Fi" -> movieRows.filter { it.category == HomeCategories.SCIFI || it.title.contains("Sci-Fi", ignoreCase = true) }
                                 else -> movieRows
                             }
                         }
@@ -141,12 +171,15 @@ fun HomeScreen(
                                 .map { it.copy(items = it.items.filter { item -> item.isSeries }) }
                                 .filter { it.items.isNotEmpty() }
                             when (selectedCategory) {
-                                "🔥 Trending" -> seriesRows.filter { it.category == HomeCategories.TRENDING_SERIES || it.title.contains("Trending", ignoreCase = true) }
-                                "🇮🇳 Hindi Series" -> seriesRows.filter { it.category == HomeCategories.HINDI_SERIES || it.title.contains("Hindi", ignoreCase = true) }
-                                "⚡ Thrillers" -> seriesRows.filter { it.category == HomeCategories.THRILLER_SERIES || it.title.contains("Thriller", ignoreCase = true) }
-                                "🌍 Hollywood" -> seriesRows.filter { it.category == HomeCategories.GLOBAL_SERIES || it.title.contains("Hollywood", ignoreCase = true) || it.title.contains("Global", ignoreCase = true) }
+                                "🆕 Latest Hindi" -> seriesRows.filter { it.title.contains("Latest Hindi", ignoreCase = true) || it.title.contains("Fresh", ignoreCase = true) }
+                                "🔥 Most Popular" -> seriesRows.filter { it.title.contains("Popular", ignoreCase = true) }
+                                "⭐ Top Rated" -> seriesRows.filter { it.title.contains("Top Rated", ignoreCase = true) }
+                                "💥 Action" -> seriesRows.filter { it.title.contains("Action", ignoreCase = true) }
+                                "🕵️ Crime" -> seriesRows.filter { it.category == HomeCategories.CRIME_SERIES || it.title.contains("Crime", ignoreCase = true) }
+                                "👻 Horror" -> seriesRows.filter { it.category == HomeCategories.HORROR || it.title.contains("Horror", ignoreCase = true) }
                                 "🌸 K-Drama" -> seriesRows.filter { it.category == HomeCategories.KDRAMA_SERIES || it.title.contains("K-Drama", ignoreCase = true) }
                                 "⚔️ Anime" -> seriesRows.filter { it.category == HomeCategories.ANIME_SERIES || it.title.contains("Anime", ignoreCase = true) }
+                                "🌍 Hollywood" -> seriesRows.filter { it.category == HomeCategories.GLOBAL_SERIES || it.title.contains("Hollywood", ignoreCase = true) || it.title.contains("Global", ignoreCase = true) }
                                 else -> seriesRows
                             }
                         }
@@ -259,9 +292,9 @@ private fun CatalogHome(
                 }
             }
             if (continueWatching.isNotEmpty()) {
-                item { Spacer(Modifier.height(24.dp)); SectionHeader("Continue watching", subtitle = "Jump back in", trailingText = "${continueWatching.size} in progress") }
+                item { Spacer(Modifier.height(28.dp)); SectionHeader("Continue watching", subtitle = "Jump back in", trailingText = "${continueWatching.size} in progress") }
                 item {
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(16.dp))
                     LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         items(continueWatching, key = { it.item.id }) { entry -> WideCard(entry.item, entry.progress, onClick = { onResume(entry) }) }
                     }
@@ -270,7 +303,7 @@ private fun CatalogHome(
             items(rows) { row ->
                 Spacer(Modifier.height(34.dp))
                 SectionHeader(row.title, subtitle = row.subtitle, trailingText = if (row.ranked) "TOP 10" else null)
-                Spacer(Modifier.height(14.dp))
+                Spacer(Modifier.height(16.dp))
                 LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(if (row.ranked) 2.dp else 12.dp)) {
                     itemsIndexed(row.items, key = { _, item -> "${row.title}:${item.id}" }) { index, item ->
                         if (row.ranked) RankedPosterCard(index + 1, item, item.id in savedIds) { onDetails(item) }
