@@ -122,6 +122,7 @@ import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
@@ -221,7 +222,7 @@ fun PlayerScreen(
     var videoHeight by remember { mutableIntStateOf(0) }
 
     val exoPlayer = remember {
-        val dataSourceFactory = DefaultHttpDataSource.Factory()
+        val httpDataSourceFactory = DefaultHttpDataSource.Factory()
             .setUserAgent(app.costream.data.NetMirrorRepository.USER_AGENT)
             .setConnectTimeoutMs(20_000)
             .setReadTimeoutMs(35_000)
@@ -230,6 +231,7 @@ fun PlayerScreen(
                     setDefaultRequestProperties(request.source.headers)
                 }
             }
+        val dataSourceFactory = DefaultDataSource.Factory(context, httpDataSourceFactory)
         val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMs(20_000, 90_000, 1_500, 3_000)
             .build()

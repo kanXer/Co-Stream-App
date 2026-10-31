@@ -38,7 +38,7 @@ class CoStreamApp : Application() {
             }
             .build()
 
-        netMirrorRepository = NetMirrorRepository(httpClient)
+        netMirrorRepository = NetMirrorRepository(httpClient, this)
         authRepository = AuthRepository(this)
         store = AppStore(this)
     }

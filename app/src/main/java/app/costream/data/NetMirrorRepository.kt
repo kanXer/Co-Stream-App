@@ -16,7 +16,10 @@ import java.net.URLEncoder
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.abs
 
-class NetMirrorRepository(private val client: OkHttpClient) {
+class NetMirrorRepository(
+    private val client: OkHttpClient,
+    private val context: android.content.Context? = null
+) {
 
     private val baseUrl = "https://net27.cc"
     private val metadataCache = ConcurrentHashMap<String, Pair<Long, JSONObject>>()
@@ -568,6 +571,36 @@ class NetMirrorRepository(private val client: OkHttpClient) {
             val array = runCatching { JSONArray(playJson) }.getOrNull() ?: continue
             val first = array.optJSONObject(0) ?: continue
             val sources = first.optJSONArray("sources") ?: continue
+
+            // Check if master manifest uses dummy 220884 video placeholder
+            var syntheticMasterSource: StreamSource? = null
+            for (i in 0 until sources.length()) {
+                val s = sources.optJSONObject(i) ?: continue
+                var file = s.optString("file")
+                if (file.contains(".m3u8", true)) {
+                    if (file.startsWith("/")) file = "https://net52.cc$file"
+                    val manifestReq = Request.Builder()
+                        .url(file)
+                        .header("User-Agent", USER_AGENT)
+                        .header("Referer", "https://net52.cc/")
+                        .header("Cookie", "ott=nf")
+                        .build()
+                    val masterText = runCatching {
+                        client.newCall(manifestReq).execute().use { resp ->
+                            if (resp.isSuccessful) resp.body?.string().orEmpty() else null
+                        }
+                    }.getOrNull()
+                    if (masterText != null && masterText.contains("/files/220884/")) {
+                        syntheticMasterSource = buildSyntheticMaster(targetId, masterText)
+                        break
+                    }
+                }
+            }
+
+            if (syntheticMasterSource != null) {
+                return@withContext listOf(syntheticMasterSource)
+            }
+
             val list = mutableListOf<StreamSource>()
             for (i in 0 until sources.length()) {
                 val s = sources.optJSONObject(i) ?: continue
@@ -602,6 +635,103 @@ class NetMirrorRepository(private val client: OkHttpClient) {
             }
         }
         emptyList()
+    }
+
+    private suspend fun buildSyntheticMaster(targetId: String, masterText: String): StreamSource? = withContext(Dispatchers.IO) {
+        val lines = masterText.lines()
+        val audioTracks = mutableListOf<Triple<String, String, String>>() // (language, name, uri)
+        for (line in lines) {
+            val trimmed = line.trim()
+            if (trimmed.startsWith("#EXT-X-MEDIA") && trimmed.contains("TYPE=AUDIO")) {
+                val uriMatch = Regex("""URI="([^"]+)"""").find(trimmed)
+                val langMatch = Regex("""LANGUAGE="([^"]+)"""").find(trimmed)
+                val nameMatch = Regex("""NAME="([^"]+)"""").find(trimmed)
+                val uri = uriMatch?.groupValues?.get(1) ?: continue
+                if (uri.contains("/files/") && !uri.contains("/files/220884/")) {
+                    val lang = langMatch?.groupValues?.get(1) ?: "hin"
+                    val name = nameMatch?.groupValues?.get(1) ?: lang
+                    audioTracks.add(Triple(lang, name, uri))
+                }
+            }
+        }
+        if (audioTracks.isEmpty()) return@withContext null
+
+        val (_, _, firstAudioUri) = audioTracks.first()
+        val audioReq = Request.Builder()
+            .url(firstAudioUri)
+            .header("User-Agent", USER_AGENT)
+            .header("Referer", "https://net52.cc/")
+            .build()
+        val audioM3u8 = runCatching {
+            client.newCall(audioReq).execute().use { resp ->
+                if (resp.isSuccessful) resp.body?.string().orEmpty() else null
+            }
+        }.getOrNull() ?: return@withContext null
+
+        val cacheBase = context?.cacheDir ?: java.io.File(System.getProperty("java.io.tmpdir") ?: "/tmp")
+        val hlsDir = java.io.File(cacheBase, "hls/$targetId").apply { mkdirs() }
+
+        // Write audio tracks
+        for (i in audioTracks.indices) {
+            val (_, _, uri) = audioTracks[i]
+            val aReq = if (i == 0) null else Request.Builder().url(uri).header("User-Agent", USER_AGENT).header("Referer", "https://net52.cc/").build()
+            val aText = if (i == 0) audioM3u8 else runCatching {
+                client.newCall(aReq!!).execute().use { if (it.isSuccessful) it.body?.string().orEmpty() else null }
+            }.getOrNull() ?: continue
+
+            val audioBase = uri.substringBeforeLast("/") + "/"
+            val rewrittenAudio = aText.lines().joinToString("\n") { l ->
+                val tr = l.trim()
+                if (tr.endsWith(".js") || tr.contains(".js?")) {
+                    val file = if (tr.startsWith("http")) tr else audioBase + tr
+                    if (file.contains("?")) "$file&file=audio.ts" else "$file?file=audio.ts"
+                } else l
+            }
+            java.io.File(hlsDir, "audio_$i.m3u8").writeText(rewrittenAudio)
+        }
+
+        // Generate synthetic video playlists (1080p, 720p, 480p)
+        val resolutions = listOf("1080p" to "1920x1080", "720p" to "1280x720", "480p" to "854x480")
+        for ((res, _) in resolutions) {
+            val videoBase = firstAudioUri.replace(Regex("/a/\\d+/.*$"), "/$res/")
+            val rewrittenVideo = audioM3u8.lines().joinToString("\n") { l ->
+                val tr = l.trim()
+                if (tr.endsWith(".js") || tr.contains(".js?")) {
+                    val woff2 = tr.replace(".js", ".woff2")
+                    val file = if (woff2.startsWith("http")) woff2 else videoBase + woff2
+                    if (file.contains("?")) "$file&file=segment.ts" else "$file?file=segment.ts"
+                } else l
+            }
+            java.io.File(hlsDir, "video_$res.m3u8").writeText(rewrittenVideo)
+        }
+
+        // Build master.m3u8
+        val masterBuilder = StringBuilder("#EXTM3U\n#EXT-X-VERSION:3\n")
+        for (i in audioTracks.indices) {
+            val (lang, name, _) = audioTracks[i]
+            val isDef = if (i == 0) "YES" else "NO"
+            masterBuilder.append("""#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",LANGUAGE="$lang",NAME="$name",DEFAULT=$isDef,AUTOSELECT=$isDef,URI="audio_$i.m3u8"""" + "\n")
+        }
+        val bandMap = mapOf("1080p" to 1000001, "720p" to 600000, "480p" to 400000)
+        for ((res, dim) in resolutions) {
+            val isDef = if (res == "720p") ",DEFAULT=YES" else ""
+            masterBuilder.append("""#EXT-X-STREAM-INF:BANDWIDTH=${bandMap[res]},AUDIO="aac"$isDef,RESOLUTION=$dim,CLOSED-CAPTIONS=NONE""" + "\n")
+            masterBuilder.append("video_$res.m3u8\n")
+        }
+
+        val masterFile = java.io.File(hlsDir, "master.m3u8")
+        masterFile.writeText(masterBuilder.toString())
+
+        StreamSource(
+            url = "file://${masterFile.absolutePath}",
+            label = "Auto (Full HD)",
+            quality = "1080p",
+            mimeType = "application/x-mpegURL",
+            headers = mapOf(
+                "Referer" to "https://net52.cc/",
+                "User-Agent" to USER_AGENT
+            )
+        )
     }
 
     private fun parseCatalogItems(array: JSONArray?): List<MediaItem> {
