@@ -76,7 +76,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
-    var homeState by mutableStateOf<HomeUiState>(HomeUiState.Idle)
+    var homeState by mutableStateOf<HomeUiState>(HomeUiState.Ready(repository.instantHomeFeed(selectedPlatforms)))
         private set
     var searchState by mutableStateOf<SearchUiState>(SearchUiState.Idle)
         private set
@@ -163,11 +163,17 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun loadHome(force: Boolean = false) {
         homeJob?.cancel()
-        homeState = HomeUiState.Loading
+        if (homeState !is HomeUiState.Ready) {
+            homeState = HomeUiState.Ready(repository.instantHomeFeed(selectedPlatforms))
+        }
         homeJob = viewModelScope.launch {
             runCatching { repository.homeFeed(selectedPlatforms, force) }
                 .onSuccess { homeState = HomeUiState.Ready(it) }
-                .onFailure { homeState = HomeUiState.Error(it.message ?: "Couldn't load the catalog.") }
+                .onFailure {
+                    if (homeState !is HomeUiState.Ready) {
+                        homeState = HomeUiState.Error(it.message ?: "Couldn't load the catalog.")
+                    }
+                }
         }
     }
 

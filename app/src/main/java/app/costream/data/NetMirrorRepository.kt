@@ -21,11 +21,58 @@ class NetMirrorRepository(
     private val context: android.content.Context? = null
 ) {
 
-    private val baseUrl = "https://net27.cc"
+    private val baseUrl = "https://net79.cc"
     private val metadataCache = ConcurrentHashMap<String, Pair<Long, JSONObject>>()
 
     @Volatile
     private var homeCache: Triple<Long, String, HomeFeed>? = null
+
+    fun instantHomeFeed(platforms: List<String>): HomeFeed {
+        val selected = platforms.ifEmpty { DEFAULT_PLATFORMS }
+        val currentYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
+        val featured = CURATED_HINDI_LATEST.take(8).map { it.toMediaItem() }
+        val rows = buildList {
+            val latestHindi = CURATED_HINDI_LATEST.map { it.toMediaItem() }
+            if (latestHindi.isNotEmpty()) {
+                add(HomeRow("🆕 Latest Hindi Movies", "Newest Bollywood & Indian releases", latestHindi, ranked = true, category = HomeCategories.LATEST_MOVIES))
+            }
+            val thisYear = CURATED_HINDI_LATEST.filter { (it.year.toIntOrNull() ?: 0) >= currentYear - 1 }.map { it.toMediaItem() }
+            if (thisYear.isNotEmpty()) {
+                add(HomeRow("🎬 $currentYear Bollywood Hits", "Top Indian movies releasing in $currentYear", thisYear, ranked = true, category = HomeCategories.HINDI_MOVIES))
+            }
+            selected.forEach { platform ->
+                val label = platformLabel(platform)
+                val curatedMovies = when (platform) {
+                    "Netflix" -> CURATED_NETFLIX_HINDI_MOVIES
+                    "PrimeVideo" -> CURATED_PRIME_HINDI_MOVIES
+                    else -> emptyList()
+                }
+                val curatedSeries = when (platform) {
+                    "Netflix" -> CURATED_NETFLIX_HINDI_SERIES
+                    "PrimeVideo" -> CURATED_PRIME_HINDI_SERIES
+                    else -> emptyList()
+                }
+                if (curatedMovies.isNotEmpty()) {
+                    add(HomeRow("🏆 Top 10 Hindi Movies on $label", "Trending movies with Hindi audio", curatedMovies.map { it.toMediaItem() }, ranked = true, category = HomeCategories.HINDI_MOVIES))
+                }
+                if (curatedSeries.isNotEmpty()) {
+                    add(HomeRow("📺 Top 10 Hindi Web Series on $label", "Trending Indian and Hindi series", curatedSeries.map { it.toMediaItem() }, ranked = true, category = HomeCategories.HINDI_SERIES))
+                }
+            }
+            add(HomeRow("🔥 Most Popular Hindi Movies", "All-time Bollywood fan favourites", CURATED_HINDI_POPULAR.map { it.toMediaItem() }, category = HomeCategories.HINDI_MOVIES))
+            add(HomeRow("⭐ Top Rated Hindi Movies", "Highest rated Indian films", CURATED_HINDI_POPULAR.filter { it.rating >= 7.0 }.map { it.toMediaItem() }, category = HomeCategories.HINDI_MOVIES))
+            add(HomeRow("🆕 Latest Hindi Web Series", "Freshest Indian streaming shows", CURATED_HINDI_SERIES_LIST.map { it.toMediaItem() }, category = HomeCategories.HINDI_SERIES))
+            add(HomeRow("🔥 Most Popular Hindi Web Series", "Binge-worthy Indian shows", CURATED_HINDI_SERIES_LIST.map { it.toMediaItem() }, category = HomeCategories.HINDI_SERIES))
+            add(HomeRow("⭐ Top Rated Hindi Web Series", "Critically acclaimed Indian shows", CURATED_HINDI_SERIES_LIST.filter { it.rating >= 8.0 }.map { it.toMediaItem() }, category = HomeCategories.HINDI_SERIES))
+            add(HomeRow("💥 Hindi Action Movies", "High-octane Bollywood action", CURATED_HINDI_ACTION.map { it.toMediaItem() }, category = HomeCategories.ACTION_MOVIES))
+            add(HomeRow("🔪 Hindi Thrillers", "Edge-of-your-seat suspense films", CURATED_HINDI_THRILLER.map { it.toMediaItem() }, category = HomeCategories.THRILLER_MOVIES))
+            add(HomeRow("😂 Hindi Comedy Movies", "Laugh-out-loud Bollywood picks", CURATED_HINDI_COMEDY.map { it.toMediaItem() }, category = HomeCategories.COMEDY_MOVIES))
+            add(HomeRow("💕 Hindi Romance Movies", "Bollywood love stories", CURATED_HINDI_ROMANCE.map { it.toMediaItem() }, category = HomeCategories.ROMANCE_MOVIES))
+            add(HomeRow("👻 Hindi Horror", "Spine-chilling desi horror", CURATED_HINDI_HORROR.map { it.toMediaItem() }, category = HomeCategories.HORROR))
+            add(HomeRow("🚀 Hindi Sci-Fi & Fantasy", "Futuristic Indian blockbusters", CURATED_HINDI_SCIFI.map { it.toMediaItem() }, category = HomeCategories.SCIFI))
+        }
+        return HomeFeed(featured = featured, rows = rows)
+    }
 
     suspend fun homeFeed(platforms: List<String>, force: Boolean = false): HomeFeed {
         val selected = platforms.ifEmpty { DEFAULT_PLATFORMS }
@@ -82,23 +129,12 @@ class NetMirrorRepository(
                 }.getOrDefault(emptyList())
             }
 
-            // Genre searches matching web app
-            val actionMoviesDeferred = async { runCatching { search("Hindi action movie").filter { it.mediaType == "movie" } }.getOrDefault(emptyList()) }
-            val thrillerMoviesDeferred = async { runCatching { search("Hindi thriller movie").filter { it.mediaType == "movie" } }.getOrDefault(emptyList()) }
-            val romanceMoviesDeferred = async { runCatching { search("Hindi romance movie").filter { it.mediaType == "movie" } }.getOrDefault(emptyList()) }
-            val comedyMoviesDeferred = async { runCatching { search("Hindi comedy movie").filter { it.mediaType == "movie" } }.getOrDefault(emptyList()) }
-            val familyMoviesDeferred = async { runCatching { search("Hindi family movie").filter { it.mediaType == "movie" } }.getOrDefault(emptyList()) }
-            val actionSeriesDeferred = async { runCatching { search("Hindi action web series").filter { it.mediaType == "tv" } }.getOrDefault(emptyList()) }
-            val crimeSeriesDeferred = async { runCatching { search("Hindi crime web series").filter { it.mediaType == "tv" } }.getOrDefault(emptyList()) }
-            val horrorDeferred = async { runCatching { search("Hindi horror") }.getOrDefault(emptyList()) }
-            val scifiDeferred = async { runCatching { search("Hindi sci-fi fantasy movie").filter { it.mediaType == "movie" } }.getOrDefault(emptyList()) }
-
             // Global, K-Drama and Anime
             val globalSeriesDeferred = async { runCatching { discover("Netflix", "tv", country = "US") }.getOrDefault(emptyList()) }
             val kdramaSeriesDeferred = async { runCatching { discover("Netflix", "tv", country = "KR") }.getOrDefault(emptyList()) }
             val animeCuratedDeferred = async { runCatching { curated("Crunchyroll") }.getOrDefault(emptyList()) }
 
-            // Await all
+            // Await essential live discovery items
             val curatedByPlatform = curatedDeferred.mapValues { it.value.await() }
             val latestHindiMovies = cleanList(latestHindiMoviesDeferred.await())
             val thisYearMovies = cleanList(thisYearMoviesDeferred.await())
@@ -108,15 +144,6 @@ class NetMirrorRepository(
             val popularHindiSeries = cleanList(popularHindiSeriesDeferred.await())
             val topRatedSeries = cleanList(topRatedSeriesDeferred.await())
 
-            val actionMovies = cleanList(actionMoviesDeferred.await())
-            val thrillerMovies = cleanList(thrillerMoviesDeferred.await())
-            val romanceMovies = cleanList(romanceMoviesDeferred.await())
-            val comedyMovies = cleanList(comedyMoviesDeferred.await())
-            val familyMovies = cleanList(familyMoviesDeferred.await())
-            val actionSeries = cleanList(actionSeriesDeferred.await())
-            val crimeSeries = cleanList(crimeSeriesDeferred.await())
-            val horrorItems = cleanList(horrorDeferred.await())
-            val scifiMovies = cleanList(scifiDeferred.await())
             val globalSeries = cleanList(globalSeriesDeferred.await())
             val kdramaSeries = cleanList(kdramaSeriesDeferred.await())
             val animeSeries = cleanList(animeCuratedDeferred.await().flatMap { it.second }.filter { it.mediaType == "tv" })
@@ -285,15 +312,15 @@ class NetMirrorRepository(
                 }
 
                 // 9-18. Genres matching web app
-                val finalActionMovies = buildSectionItems(CURATED_HINDI_ACTION, actionMovies, 15)
-                val finalThrillerMovies = buildSectionItems(CURATED_HINDI_THRILLER, thrillerMovies, 15)
-                val finalRomanceMovies = buildSectionItems(CURATED_HINDI_ROMANCE, romanceMovies, 15)
-                val finalComedyMovies = buildSectionItems(CURATED_HINDI_COMEDY, comedyMovies, 15)
-                val finalFamilyMovies = buildSectionItems(CURATED_HINDI_FAMILY, familyMovies, 15)
-                val finalActionSeries = buildSectionItems(CURATED_HINDI_ACTION_SERIES, actionSeries, 15, type = "tv")
-                val finalCrimeSeries = buildSectionItems(CURATED_HINDI_CRIME_SERIES, crimeSeries, 15, type = "tv")
-                val finalHorror = buildSectionItems(CURATED_HINDI_HORROR, horrorItems, 15)
-                val finalScifi = buildSectionItems(CURATED_HINDI_SCIFI, scifiMovies, 15)
+                val finalActionMovies = buildSectionItems(CURATED_HINDI_ACTION, emptyList(), 15)
+                val finalThrillerMovies = buildSectionItems(CURATED_HINDI_THRILLER, emptyList(), 15)
+                val finalRomanceMovies = buildSectionItems(CURATED_HINDI_ROMANCE, emptyList(), 15)
+                val finalComedyMovies = buildSectionItems(CURATED_HINDI_COMEDY, emptyList(), 15)
+                val finalFamilyMovies = buildSectionItems(CURATED_HINDI_FAMILY, emptyList(), 15)
+                val finalActionSeries = buildSectionItems(CURATED_HINDI_ACTION_SERIES, emptyList(), 15, type = "tv")
+                val finalCrimeSeries = buildSectionItems(CURATED_HINDI_CRIME_SERIES, emptyList(), 15, type = "tv")
+                val finalHorror = buildSectionItems(CURATED_HINDI_HORROR, emptyList(), 15)
+                val finalScifi = buildSectionItems(CURATED_HINDI_SCIFI, emptyList(), 15)
 
                 if (finalActionMovies.isNotEmpty()) add(HomeRow("💥 Hindi Action Movies", "High-octane Bollywood action", finalActionMovies, category = HomeCategories.ACTION_MOVIES))
                 if (finalThrillerMovies.isNotEmpty()) add(HomeRow("🔪 Hindi Thrillers", "Edge-of-your-seat suspense films", finalThrillerMovies, category = HomeCategories.THRILLER_MOVIES))
