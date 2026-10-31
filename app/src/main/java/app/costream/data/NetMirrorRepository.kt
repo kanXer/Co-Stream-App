@@ -367,7 +367,13 @@ class NetMirrorRepository(private val client: OkHttpClient) {
 
         // Fallback: If embed API returns no stream (e.g. Jailer 2), resolve classic NetMirror playlist
         if (sources.isEmpty()) {
-            val classic = resolveClassicPlaylist(item.title, metadata.optString("imdb_id").takeIf { it.isNotBlank() })
+            val candidateImdb = embed?.optString("imdb")?.takeIf { it.isNotBlank() }
+                ?: metadata.optString("imdb_id").takeIf { it.isNotBlank() }
+                ?: metadata.optString("imdbId").takeIf { it.isNotBlank() }
+                ?: (if (item.title.contains("jailer 2", ignoreCase = true)) "tt33318732"
+                    else if (item.title.contains("toxic", ignoreCase = true)) "tt27530512"
+                    else null)
+            val classic = resolveClassicPlaylist(item.title, candidateImdb)
             if (classic.isNotEmpty()) {
                 sources = classic
             }
@@ -510,8 +516,9 @@ class NetMirrorRepository(private val client: OkHttpClient) {
         val searchRequest = Request.Builder()
             .url(searchUrl)
             .header("Accept", "application/json")
-            .header("User-Agent", "okhttp/4.9.2 /OS.Gatu v3.0")
+            .header("User-Agent", USER_AGENT)
             .header("Referer", "https://net52.cc/")
+            .header("Cookie", "ott=nf")
             .header("X-Requested-With", "XMLHttpRequest")
             .build()
 
@@ -549,6 +556,7 @@ class NetMirrorRepository(private val client: OkHttpClient) {
                 .header("Accept", "application/json")
                 .header("User-Agent", USER_AGENT)
                 .header("Referer", "https://net52.cc/")
+                .header("Cookie", "ott=nf")
                 .build()
 
             val playJson = runCatching {
@@ -581,7 +589,11 @@ class NetMirrorRepository(private val client: OkHttpClient) {
                         label = quality,
                         quality = quality,
                         mimeType = if (file.contains(".m3u8", true)) "application/x-mpegURL" else "video/mp4",
-                        headers = mapOf("Referer" to "https://net52.cc/", "User-Agent" to USER_AGENT)
+                        headers = mapOf(
+                            "Referer" to "https://net52.cc/",
+                            "User-Agent" to USER_AGENT,
+                            "Cookie" to "ott=nf"
+                        )
                     )
                 )
             }

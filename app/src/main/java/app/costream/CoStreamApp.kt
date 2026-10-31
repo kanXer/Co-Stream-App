@@ -28,9 +28,11 @@ class CoStreamApp : Application() {
             .callTimeout(50, TimeUnit.SECONDS)
             .retryOnConnectionFailure(true)
             .addInterceptor { chain ->
+                val request = chain.request()
+                val ua = request.header("User-Agent") ?: "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Mobile Safari/537.36"
                 chain.proceed(
-                    chain.request().newBuilder()
-                        .header("User-Agent", "Co-Stream/1.0 (Android)")
+                    request.newBuilder()
+                        .header("User-Agent", ua)
                         .build()
                 )
             }
