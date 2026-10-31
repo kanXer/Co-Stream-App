@@ -239,7 +239,14 @@ fun PlayerScreen(
             }
         val dataSourceFactory = DefaultDataSource.Factory(context, httpDataSourceFactory)
         val loadControl = DefaultLoadControl.Builder()
-            .setBufferDurationsMs(20_000, 90_000, 1_500, 3_000)
+            .setBufferDurationsMs(
+                /* minBufferMs = */ 60_000,
+                /* maxBufferMs = */ 180_000,
+                /* bufferForPlaybackMs = */ 6_000,
+                /* bufferForPlaybackAfterRebufferMs = */ 10_000
+            )
+            .setPrioritizeTimeOverSizeThresholds(true)
+            .setBackBuffer(60_000, true)
             .build()
         ExoPlayer.Builder(context, DefaultMediaSourceFactory(dataSourceFactory))
             .setLoadControl(loadControl)
