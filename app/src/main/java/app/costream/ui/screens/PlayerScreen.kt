@@ -30,6 +30,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.displayCutoutPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -102,6 +107,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -749,9 +755,7 @@ fun PlayerScreen(
 
                 // ── Center playback controls (seek ±10 + play/pause) ─────────────
                 Row(
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .displayCutoutPadding(),
+                    modifier = Modifier.align(Alignment.Center),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(28.dp)
                 ) {
@@ -796,12 +800,12 @@ fun PlayerScreen(
                     )
                 }
 
-                // ── Lock button (CenterStart) ────────────────────────────────────
+                // ── Lock button (CenterEnd - Right Side in Fullscreen) ────────────
                 Box(
                     modifier = Modifier
-                        .align(Alignment.CenterStart)
+                        .align(Alignment.CenterEnd)
                         .displayCutoutPadding()
-                        .padding(start = 16.dp)
+                        .padding(end = 16.dp)
                 ) {
                     GlassIconButton(
                         icon = Icons.Rounded.Lock,
@@ -820,9 +824,9 @@ fun PlayerScreen(
             if (locked && showUnlock && !isPipMode && errorText == null) {
                 Row(
                     modifier = Modifier
-                        .align(Alignment.CenterStart)
+                        .align(Alignment.CenterEnd)
                         .displayCutoutPadding()
-                        .padding(start = 24.dp)
+                        .padding(end = 24.dp)
                         .clip(RoundedCornerShape(50))
                         .background(Color.Black.copy(alpha = 0.62f))
                         .border(1.dp, Color.White.copy(alpha = 0.14f), RoundedCornerShape(50))
@@ -859,6 +863,13 @@ fun PlayerScreen(
                     enter = fadeIn(tween(200)),
                     exit = fadeOut(tween(180))
                 ) {
+                    val cutoutValues = WindowInsets.displayCutout.asPaddingValues()
+                    val layoutDir = LocalLayoutDirection.current
+                    val balancedCutout = maxOf(
+                        cutoutValues.calculateStartPadding(layoutDir),
+                        cutoutValues.calculateEndPadding(layoutDir)
+                    )
+
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -868,8 +879,7 @@ fun PlayerScreen(
                                 )
                             )
                             .navigationBarsPadding()
-                            .displayCutoutPadding()
-                            .padding(horizontal = 18.dp)
+                            .padding(start = 18.dp + balancedCutout, end = 18.dp + balancedCutout)
                             .padding(top = 28.dp, bottom = 12.dp)
                     ) {
                         if (!livePlayback) {
@@ -1176,6 +1186,13 @@ private fun PlayerTopBar(
     onSettings: () -> Unit,
     onRotate: () -> Unit
 ) {
+    val cutoutValues = WindowInsets.displayCutout.asPaddingValues()
+    val layoutDir = LocalLayoutDirection.current
+    val balancedCutout = maxOf(
+        cutoutValues.calculateStartPadding(layoutDir),
+        cutoutValues.calculateEndPadding(layoutDir)
+    )
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -1189,8 +1206,7 @@ private fun PlayerTopBar(
                 )
             )
             .statusBarsPadding()
-            .displayCutoutPadding()
-            .padding(horizontal = 14.dp)
+            .padding(start = 14.dp + balancedCutout, end = 14.dp + balancedCutout)
             .padding(top = 8.dp, bottom = 24.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
