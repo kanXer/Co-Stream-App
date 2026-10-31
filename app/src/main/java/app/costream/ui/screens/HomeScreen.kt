@@ -19,6 +19,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -36,6 +38,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,6 +47,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 import app.costream.data.HomeCategories
 import app.costream.data.HomeRow
 import app.costream.data.MediaItem
@@ -88,6 +92,15 @@ fun HomeScreen(
     val savedIds = remember(myList) { myList.map { it.id }.toSet() }
     var selectedTab by remember { mutableStateOf(CatalogTab.HOME) }
     var selectedCategory by remember(selectedTab) { mutableStateOf("All") }
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(selectedTab) {
+        listState.scrollToItem(0)
+    }
+    LaunchedEffect(selectedCategory) {
+        listState.scrollToItem(0)
+    }
 
     val movieCategories = remember {
         listOf(
@@ -193,6 +206,7 @@ fun HomeScreen(
                 }
 
                 CatalogHome(
+                    listState = listState,
                     featured = currentFeatured,
                     rows = currentRows,
                     categoryChips = categoryChips,
@@ -215,6 +229,7 @@ fun HomeScreen(
         CatalogBottomBar(
             selected = selectedTab,
             onSelect = { selectedTab = it },
+            onScrollToTop = { scope.launch { listState.animateScrollToItem(0) } },
             onMyList = onMyList,
             modifier = Modifier.align(Alignment.BottomCenter)
         )
@@ -223,6 +238,7 @@ fun HomeScreen(
 
 @Composable
 private fun CatalogHome(
+    listState: LazyListState,
     featured: List<MediaItem>,
     rows: List<HomeRow>,
     categoryChips: List<String>,
@@ -252,7 +268,7 @@ private fun CatalogHome(
     }
 
     Box(Modifier.fillMaxSize()) {
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 72.dp, bottom = 104.dp)) {
+        LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 72.dp, bottom = 104.dp)) {
             item {
                 if (featured.isNotEmpty()) Box {
                     HorizontalPager(state = pagerState, key = { featured.getOrNull(it)?.id ?: it }) { page ->
@@ -321,6 +337,7 @@ private fun CatalogHome(
 private fun CatalogBottomBar(
     selected: CatalogTab,
     onSelect: (CatalogTab) -> Unit,
+    onScrollToTop: () -> Unit,
     onMyList: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -332,9 +349,15 @@ private fun CatalogBottomBar(
             .padding(horizontal = 8.dp, vertical = 7.dp),
         horizontalArrangement = Arrangement.SpaceEvenly
     ) {
-        BottomItem("Home", Icons.Rounded.Home, selected == CatalogTab.HOME) { onSelect(CatalogTab.HOME) }
-        BottomItem("Movies", Icons.Rounded.Movie, selected == CatalogTab.MOVIES) { onSelect(CatalogTab.MOVIES) }
-        BottomItem("Web Series", Icons.Rounded.Tv, selected == CatalogTab.SERIES) { onSelect(CatalogTab.SERIES) }
+        BottomItem("Home", Icons.Rounded.Home, selected == CatalogTab.HOME) {
+            if (selected == CatalogTab.HOME) onScrollToTop() else onSelect(CatalogTab.HOME)
+        }
+        BottomItem("Movies", Icons.Rounded.Movie, selected == CatalogTab.MOVIES) {
+            if (selected == CatalogTab.MOVIES) onScrollToTop() else onSelect(CatalogTab.MOVIES)
+        }
+        BottomItem("Web Series", Icons.Rounded.Tv, selected == CatalogTab.SERIES) {
+            if (selected == CatalogTab.SERIES) onScrollToTop() else onSelect(CatalogTab.SERIES)
+        }
         BottomItem("Offline", Icons.Rounded.CloudOff, false, onMyList)
     }
 }

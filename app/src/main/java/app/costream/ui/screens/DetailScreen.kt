@@ -158,9 +158,9 @@ fun DetailScreen(
             item {
                 Column(Modifier.padding(horizontal = 20.dp)) {
                     PrimaryButton(
-                        text = if (playPreparing) "Preparing…" else if ((progress?.positionMs ?: 0) > 4_000) "Resume" else "Play",
+                        text = if (!loading && item.sources.isEmpty()) "Not Available to Stream" else if (playPreparing) "Preparing…" else if ((progress?.positionMs ?: 0) > 4_000) "Resume" else "Play",
                         loading = playPreparing,
-                        enabled = !loading || item.sources.isNotEmpty(),
+                        enabled = if (!loading) item.sources.isNotEmpty() else true,
                         onClick = {
                             if (item.isSeries) onPlayEpisode(item, item.selectedSeason, item.selectedEpisode, selectedAudio)
                             else if (selectedAudio != null) onPlayEpisode(item, 1, 1, selectedAudio)

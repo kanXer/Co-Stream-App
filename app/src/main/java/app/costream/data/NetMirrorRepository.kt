@@ -134,19 +134,20 @@ class NetMirrorRepository(private val client: OkHttpClient) {
             // Featured banner: Curated Bollywood blockbusters (including Jailer 2) at top + latest releases
             val featuredList = buildList {
                 addAll(CURATED_HINDI_SPOTLIGHT)
-                addAll(latestHindiMovies)
+                addAll(buildSectionItems(CURATED_HINDI_LATEST, latestHindiMovies, 10))
                 addAll(latestCombined)
             }.let(::cleanList).take(8)
 
             // BUILD ALL ROWS (matching the web app categories)
             val rows = buildList {
                 // 1. Latest Hindi Movies (top priority)
-                if (latestHindiMovies.isNotEmpty()) {
+                val latestHindi = buildSectionItems(CURATED_HINDI_LATEST, latestHindiMovies, 20)
+                if (latestHindi.isNotEmpty()) {
                     add(
                         HomeRow(
                             title = "🆕 Latest Hindi Movies",
                             subtitle = "Newest Bollywood & Indian releases",
-                            items = latestHindiMovies.take(20),
+                            items = latestHindi,
                             ranked = true,
                             category = HomeCategories.LATEST_MOVIES
                         )
@@ -154,12 +155,17 @@ class NetMirrorRepository(private val client: OkHttpClient) {
                 }
 
                 // 2. This Year's Releases
-                if (thisYearMovies.isNotEmpty()) {
+                val thisYear = buildSectionItems(
+                    CURATED_HINDI_LATEST.filter { (it.year.toIntOrNull() ?: 0) >= currentYear - 1 },
+                    thisYearMovies,
+                    15
+                )
+                if (thisYear.isNotEmpty()) {
                     add(
                         HomeRow(
                             title = "🎬 $currentYear Bollywood Hits",
                             subtitle = "Top Indian movies releasing in $currentYear",
-                            items = thisYearMovies.take(15),
+                            items = thisYear,
                             ranked = true,
                             category = HomeCategories.HINDI_MOVIES
                         )
@@ -170,14 +176,27 @@ class NetMirrorRepository(private val client: OkHttpClient) {
                 selected.forEach { platform ->
                     val label = platformLabel(platform)
                     val rails = curatedByPlatform[platform].orEmpty()
-                    val pMovies = cleanList(rails.flatMap { it.second }.filter { it.mediaType == "movie" })
-                    val pSeries = cleanList(rails.flatMap { it.second }.filter { it.mediaType == "tv" })
+                    val pLiveMovies = cleanList(rails.flatMap { it.second }.filter { it.mediaType == "movie" })
+                    val pLiveSeries = cleanList(rails.flatMap { it.second }.filter { it.mediaType == "tv" })
+                    val curatedMovies = when (platform) {
+                        "Netflix" -> CURATED_NETFLIX_HINDI_MOVIES
+                        "PrimeVideo" -> CURATED_PRIME_HINDI_MOVIES
+                        else -> emptyList()
+                    }
+                    val curatedSeries = when (platform) {
+                        "Netflix" -> CURATED_NETFLIX_HINDI_SERIES
+                        "PrimeVideo" -> CURATED_PRIME_HINDI_SERIES
+                        else -> emptyList()
+                    }
+                    val pMovies = buildSectionItems(curatedMovies, pLiveMovies, 10)
+                    val pSeries = buildSectionItems(curatedSeries, pLiveSeries, 10, type = "tv")
+
                     if (pMovies.isNotEmpty()) {
                         add(
                             HomeRow(
                                 title = "🏆 Top 10 Hindi Movies on $label",
                                 subtitle = "Trending movies with Hindi audio",
-                                items = pMovies.take(10),
+                                items = pMovies,
                                 ranked = true,
                                 category = HomeCategories.HINDI_MOVIES
                             )
@@ -188,7 +207,7 @@ class NetMirrorRepository(private val client: OkHttpClient) {
                             HomeRow(
                                 title = "📺 Top 10 Hindi Web Series on $label",
                                 subtitle = "Trending Indian and Hindi series",
-                                items = pSeries.take(10),
+                                items = pSeries,
                                 ranked = true,
                                 category = HomeCategories.HINDI_SERIES
                             )
@@ -197,36 +216,39 @@ class NetMirrorRepository(private val client: OkHttpClient) {
                 }
 
                 // 4. Most Popular Hindi Movies
-                if (popularHindiMovies.isNotEmpty()) {
+                val popularMovies = buildSectionItems(CURATED_HINDI_POPULAR, popularHindiMovies, 20)
+                if (popularMovies.isNotEmpty()) {
                     add(
                         HomeRow(
                             title = "🔥 Most Popular Hindi Movies",
                             subtitle = "All-time Bollywood fan favourites",
-                            items = popularHindiMovies.take(20),
+                            items = popularMovies,
                             category = HomeCategories.HINDI_MOVIES
                         )
                     )
                 }
 
                 // 5. Top Rated Movies
-                if (topRatedMovies.isNotEmpty()) {
+                val topMovies = buildSectionItems(CURATED_HINDI_POPULAR.filter { it.rating >= 7.0 }, topRatedMovies, 15)
+                if (topMovies.isNotEmpty()) {
                     add(
                         HomeRow(
                             title = "⭐ Top Rated Hindi Movies",
                             subtitle = "Highest rated Indian films",
-                            items = topRatedMovies.take(15),
+                            items = topMovies,
                             category = HomeCategories.HINDI_MOVIES
                         )
                     )
                 }
 
                 // 6. Latest Hindi Web Series
-                if (latestHindiSeries.isNotEmpty()) {
+                val latestSeries = buildSectionItems(CURATED_HINDI_SERIES_LIST, latestHindiSeries, 15, type = "tv")
+                if (latestSeries.isNotEmpty()) {
                     add(
                         HomeRow(
                             title = "🆕 Latest Hindi Web Series",
                             subtitle = "Freshest Indian streaming shows",
-                            items = latestHindiSeries.take(15),
+                            items = latestSeries,
                             ranked = true,
                             category = HomeCategories.HINDI_SERIES
                         )
@@ -234,39 +256,51 @@ class NetMirrorRepository(private val client: OkHttpClient) {
                 }
 
                 // 7. Popular Hindi Web Series
-                if (popularHindiSeries.isNotEmpty()) {
+                val popularSeries = buildSectionItems(CURATED_HINDI_SERIES_LIST, popularHindiSeries, 15, type = "tv")
+                if (popularSeries.isNotEmpty()) {
                     add(
                         HomeRow(
                             title = "🔥 Most Popular Hindi Web Series",
                             subtitle = "Binge-worthy Indian shows",
-                            items = popularHindiSeries.take(15),
+                            items = popularSeries,
                             category = HomeCategories.HINDI_SERIES
                         )
                     )
                 }
 
                 // 8. Top Rated Web Series
-                if (topRatedSeries.isNotEmpty()) {
+                val topSeries = buildSectionItems(CURATED_HINDI_SERIES_LIST.filter { it.rating >= 8.0 }, topRatedSeries, 15, type = "tv")
+                if (topSeries.isNotEmpty()) {
                     add(
                         HomeRow(
                             title = "⭐ Top Rated Hindi Web Series",
                             subtitle = "Critically acclaimed Indian shows",
-                            items = topRatedSeries.take(15),
+                            items = topSeries,
                             category = HomeCategories.HINDI_SERIES
                         )
                     )
                 }
 
                 // 9-18. Genres matching web app
-                if (actionMovies.isNotEmpty()) add(HomeRow("💥 Hindi Action Movies", "High-octane Bollywood action", actionMovies.take(15), category = HomeCategories.ACTION_MOVIES))
-                if (thrillerMovies.isNotEmpty()) add(HomeRow("🔪 Hindi Thrillers", "Edge-of-your-seat suspense films", thrillerMovies.take(15), category = HomeCategories.THRILLER_MOVIES))
-                if (romanceMovies.isNotEmpty()) add(HomeRow("💕 Hindi Romance Movies", "Bollywood love stories", romanceMovies.take(15), category = HomeCategories.ROMANCE_MOVIES))
-                if (comedyMovies.isNotEmpty()) add(HomeRow("😂 Hindi Comedy Movies", "Laugh-out-loud Bollywood picks", comedyMovies.take(15), category = HomeCategories.COMEDY_MOVIES))
-                if (familyMovies.isNotEmpty()) add(HomeRow("👨‍👩‍👧 Hindi Family Movies", "Perfect for the whole family", familyMovies.take(15), category = HomeCategories.HINDI_MOVIES))
-                if (actionSeries.isNotEmpty()) add(HomeRow("💥 Hindi Action Web Series", "Action-packed Indian shows", actionSeries.take(15), category = HomeCategories.HINDI_SERIES))
-                if (crimeSeries.isNotEmpty()) add(HomeRow("🕵️ Hindi Crime Series", "Crime dramas & investigations", crimeSeries.take(15), category = HomeCategories.CRIME_SERIES))
-                if (horrorItems.isNotEmpty()) add(HomeRow("👻 Hindi Horror", "Spine-chilling desi horror", horrorItems.take(15), category = HomeCategories.HORROR))
-                if (scifiMovies.isNotEmpty()) add(HomeRow("🚀 Hindi Sci-Fi & Fantasy", "Futuristic Indian blockbusters", scifiMovies.take(15), category = HomeCategories.SCIFI))
+                val finalActionMovies = buildSectionItems(CURATED_HINDI_ACTION, actionMovies, 15)
+                val finalThrillerMovies = buildSectionItems(CURATED_HINDI_THRILLER, thrillerMovies, 15)
+                val finalRomanceMovies = buildSectionItems(CURATED_HINDI_ROMANCE, romanceMovies, 15)
+                val finalComedyMovies = buildSectionItems(CURATED_HINDI_COMEDY, comedyMovies, 15)
+                val finalFamilyMovies = buildSectionItems(CURATED_HINDI_FAMILY, familyMovies, 15)
+                val finalActionSeries = buildSectionItems(CURATED_HINDI_ACTION_SERIES, actionSeries, 15, type = "tv")
+                val finalCrimeSeries = buildSectionItems(CURATED_HINDI_CRIME_SERIES, crimeSeries, 15, type = "tv")
+                val finalHorror = buildSectionItems(CURATED_HINDI_HORROR, horrorItems, 15)
+                val finalScifi = buildSectionItems(CURATED_HINDI_SCIFI, scifiMovies, 15)
+
+                if (finalActionMovies.isNotEmpty()) add(HomeRow("💥 Hindi Action Movies", "High-octane Bollywood action", finalActionMovies, category = HomeCategories.ACTION_MOVIES))
+                if (finalThrillerMovies.isNotEmpty()) add(HomeRow("🔪 Hindi Thrillers", "Edge-of-your-seat suspense films", finalThrillerMovies, category = HomeCategories.THRILLER_MOVIES))
+                if (finalRomanceMovies.isNotEmpty()) add(HomeRow("💕 Hindi Romance Movies", "Bollywood love stories", finalRomanceMovies, category = HomeCategories.ROMANCE_MOVIES))
+                if (finalComedyMovies.isNotEmpty()) add(HomeRow("😂 Hindi Comedy Movies", "Laugh-out-loud Bollywood picks", finalComedyMovies, category = HomeCategories.COMEDY_MOVIES))
+                if (finalFamilyMovies.isNotEmpty()) add(HomeRow("👨‍👩‍👧 Hindi Family Movies", "Perfect for the whole family", finalFamilyMovies, category = HomeCategories.HINDI_MOVIES))
+                if (finalActionSeries.isNotEmpty()) add(HomeRow("💥 Hindi Action Web Series", "Action-packed Indian shows", finalActionSeries, category = HomeCategories.HINDI_SERIES))
+                if (finalCrimeSeries.isNotEmpty()) add(HomeRow("🕵️ Hindi Crime Series", "Crime dramas & investigations", finalCrimeSeries, category = HomeCategories.CRIME_SERIES))
+                if (finalHorror.isNotEmpty()) add(HomeRow("👻 Hindi Horror", "Spine-chilling desi horror", finalHorror, category = HomeCategories.HORROR))
+                if (finalScifi.isNotEmpty()) add(HomeRow("🚀 Hindi Sci-Fi & Fantasy", "Futuristic Indian blockbusters", finalScifi, category = HomeCategories.SCIFI))
                 if (kdramaSeries.isNotEmpty()) add(HomeRow("🌸 K-Drama & Asian Series", "Popular Korean drama & Asian hits", kdramaSeries.take(15), category = HomeCategories.KDRAMA_SERIES))
                 if (animeSeries.isNotEmpty()) add(HomeRow("⚔️ Anime & Animation Series", "Top Japanese anime & action series", animeSeries.take(15), category = HomeCategories.ANIME_SERIES))
                 if (globalSeries.isNotEmpty()) add(HomeRow("🌍 Hollywood & Global Series", "Acclaimed international shows", globalSeries.take(15), category = HomeCategories.GLOBAL_SERIES))
@@ -340,7 +374,7 @@ class NetMirrorRepository(private val client: OkHttpClient) {
         }
 
         if (sources.isEmpty()) {
-            throw IOException("No playable stream is currently available for \"${item.title}\".")
+            throw IOException("\"${item.title}\" is not yet available to stream on NetMirror.")
         }
 
         val audioVariants = parseAudioVariants(variantInfo)
@@ -531,7 +565,26 @@ class NetMirrorRepository(private val client: OkHttpClient) {
                 val s = sources.optJSONObject(i) ?: continue
                 var file = s.optString("file")
                 if (file.isBlank()) continue
+                if (file.contains("220884")) continue
                 if (file.startsWith("/")) file = "https://net52.cc$file"
+
+                // Check if this m3u8 playlist contains the 220884 dummy placeholder video
+                val isDummy = runCatching {
+                    val headReq = Request.Builder()
+                        .url(file)
+                        .header("Accept", "*/*")
+                        .header("User-Agent", "okhttp/4.9.2 /OS.Gatu v3.0")
+                        .header("Referer", "https://net52.cc/")
+                        .build()
+                    client.newCall(headReq).execute().use { resp ->
+                        if (resp.isSuccessful) {
+                            val body = resp.body?.string().orEmpty()
+                            body.contains("220884")
+                        } else false
+                    }
+                }.getOrDefault(false)
+                if (isDummy) continue
+
                 val label = s.optString("label")
                 val quality = when {
                     label.contains("full", true) -> "1080p"
@@ -595,7 +648,7 @@ class NetMirrorRepository(private val client: OkHttpClient) {
         for (index in 0 until streams.length()) {
             val stream = streams.optJSONObject(index) ?: continue
             val url = stream.optString("url")
-            if (url.isBlank()) continue
+            if (url.isBlank() || url.contains("220884")) continue
             val resolution = stream.optInt("resolution")
             result += StreamSource(
                 url = url,
@@ -758,6 +811,260 @@ class NetMirrorRepository(private val client: OkHttpClient) {
             "MX" -> "Amazon MX Player"
             else -> id
         }
+
+        data class HindiItemDef(
+            val tmdbId: Int,
+            val title: String,
+            val year: String,
+            val poster: String,
+            val rating: Double = 7.0,
+            val overview: String = "",
+            val mediaType: String = "movie"
+        ) {
+            fun toMediaItem(): MediaItem = MediaItem(
+                id = "nm:$mediaType:$tmdbId",
+                tmdbId = tmdbId,
+                mediaType = mediaType,
+                title = title,
+                description = overview.ifBlank { "Streaming in Hindi on Co-Stream." },
+                posterUrl = poster,
+                backdropUrl = poster.replace("/w185/", "/w780/"),
+                year = year,
+                provider = "Co-Stream",
+                badge = if (mediaType == "tv") "🔥 LATEST SERIES" else "🎬 LATEST RELEASE",
+                accentIndex = abs(tmdbId) % 5
+            )
+        }
+
+        fun buildSectionItems(
+            curatedDefs: List<HindiItemDef>,
+            liveItems: List<MediaItem>,
+            limit: Int = 20,
+            type: String = "movie"
+        ): List<MediaItem> {
+            val seenIds = mutableSetOf<String>()
+            val result = mutableListOf<MediaItem>()
+            for (def in curatedDefs) {
+                val key = "$type:${def.tmdbId}"
+                if (!seenIds.contains(key)) {
+                    seenIds.add(key)
+                    result.add(def.toMediaItem())
+                }
+            }
+            for (item in cleanList(liveItems)) {
+                val key = "${item.mediaType}:${item.tmdbId ?: item.id}"
+                if (!seenIds.contains(key) && !isBlockedMediaItem(item.tmdbId, item.title)) {
+                    seenIds.add(key)
+                    result.add(item)
+                }
+            }
+            return result.take(limit)
+        }
+
+        val CURATED_HINDI_LATEST = listOf(
+            HindiItemDef(1196943, "Chhaava", "2025", "https://image.tmdb.org/t/p/w185/ubRsrzb6NRW8YhVTJ6jG1kpNvCi.jpg", 7.2),
+            HindiItemDef(1083241, "Baby John", "2024", "https://image.tmdb.org/t/p/w185/5Oqsh17dq0cIRFPynPNy5elmyxW.jpg", 6.5),
+            HindiItemDef(1257960, "Sikandar", "2025", "https://image.tmdb.org/t/p/w185/41s42CRXafa3OuRGvCtfYPEBmse.jpg", 6.5),
+            HindiItemDef(1234139, "Jailer 2", "2026", "https://image.tmdb.org/t/p/w780/zpHTOdRl7GEPqFsDGqsN6Hi9Ylt.jpg", 8.0),
+            HindiItemDef(1213243, "Toxic", "2026", "https://image.tmdb.org/t/p/w780/6xK461P6yV8Xq50tK1B7z5wVf9V.jpg", 8.0),
+            HindiItemDef(857598, "Pushpa 2 - The Rule", "2024", "https://image.tmdb.org/t/p/w185/1T21FblunT0y8fz7YaW8JMYgUKm.jpg", 6.8),
+            HindiItemDef(1112426, "Stree 2", "2024", "https://image.tmdb.org/t/p/w185/nfnhwfUEFuSOxxf4jDdBlY6Lccw.jpg", 7.3),
+            HindiItemDef(801688, "Kalki 2898-AD", "2024", "https://image.tmdb.org/t/p/w185/rstcAnBeCkxNQjNp3YXrF6IP1tW.jpg", 7.1),
+            HindiItemDef(1014214, "Singham Again", "2024", "https://image.tmdb.org/t/p/w185/2JbNkHg8m7LaBy61LyrnnlenaxY.jpg", 6.2),
+            HindiItemDef(980599, "Bhool Bhulaiyaa 3", "2024", "https://image.tmdb.org/t/p/w185/3AfHD1HoaQpQwKH8kxRdBKVmzeU.jpg", 6.0),
+            HindiItemDef(984101, "Bad Newz", "2024", "https://image.tmdb.org/t/p/w185/qDlqxGATpYBWqGciPB4tmQm3bFT.jpg", 5.5),
+            HindiItemDef(1233531, "Article 370", "2024", "https://image.tmdb.org/t/p/w185/9VTemjHMpyxzfC3JsG2aFy8Bf9Y.jpg", 7.2),
+            HindiItemDef(1187058, "Munjya", "2024", "https://image.tmdb.org/t/p/w185/ylYdXu0SM79Qs7vOz6q7mBxanVD.jpg", 6.5),
+            HindiItemDef(1187619, "Shaitaan", "2024", "https://image.tmdb.org/t/p/w185/oRvFzcagAcC6Q317xtV7QXzwBnj.jpg", 6.7),
+            HindiItemDef(850165, "Fighter", "2024", "https://image.tmdb.org/t/p/w185/zDZowwb5qU8Q3Q9yJ2k5N4rB4l7.jpg", 6.8),
+            HindiItemDef(1146225, "Chandu Champion", "2024", "https://image.tmdb.org/t/p/w185/d5bZ4uMkW3X3y0uQfU9Z8u1p7V9.jpg", 7.3),
+            HindiItemDef(902897, "Yodha", "2024", "https://image.tmdb.org/t/p/w185/eQxU0jU7o8w7fC9B5b8X8m1P3l5.jpg", 6.1),
+            HindiItemDef(618355, "Maidaan", "2024", "https://image.tmdb.org/t/p/w185/5vR5cW9q9V6d9l7M1k4B7a8N3b5.jpg", 7.4),
+            HindiItemDef(896350, "Merry Christmas", "2024", "https://image.tmdb.org/t/p/w185/d2e1B4r8l8k3N5b7C9a1M4w7P2y.jpg", 7.0),
+            HindiItemDef(1072790, "Teri Baaton Mein Aisa Uljha Jiya", "2024", "https://image.tmdb.org/t/p/w185/2gL8d3k5l8w4m1p7n2b9c5v8x4y.jpg", 6.2)
+        )
+
+        val CURATED_HINDI_POPULAR = listOf(
+            HindiItemDef(781732, "Animal", "2023", "https://image.tmdb.org/t/p/w185/hr9rjR3J0xBBKmlJ4n3gHId9ccx.jpg", 6.8),
+            HindiItemDef(872906, "Jawan", "2023", "https://image.tmdb.org/t/p/w185/jFt1gS4BGHlK8xt76Y81Alp4dbt.jpg", 7.1),
+            HindiItemDef(864692, "Pathaan", "2023", "https://image.tmdb.org/t/p/w185/arf00BkwvXo0CFKbaD9OpqdE4Nu.jpg", 6.6),
+            HindiItemDef(960876, "Dunki", "2023", "https://image.tmdb.org/t/p/w185/kPRb1mbVHGop0egQ7153y0lhzGL.jpg", 6.8),
+            HindiItemDef(1163258, "12th Fail", "2023", "https://image.tmdb.org/t/p/w185/eebUPRI4Z5e1Z7Hev4JZAwMIFkX.jpg", 8.3),
+            HindiItemDef(885331, "Gadar 2", "2023", "https://image.tmdb.org/t/p/w185/brCBYKGQaxZZcwmFF6OIxZLdKVU.jpg", 6.2),
+            HindiItemDef(720557, "Tiger 3", "2023", "https://image.tmdb.org/t/p/w185/7wgED7Yx9VLcNWSO91VgwicHmMD.jpg", 6.0),
+            HindiItemDef(1029827, "Drishyam 2", "2022", "https://image.tmdb.org/t/p/w185/wk8Vu0DI0MiNLaXXiVqAwjLRKL5.jpg", 8.1),
+            HindiItemDef(579974, "RRR", "2022", "https://image.tmdb.org/t/p/w185/wE0I6efAW4cDDmZQWtwZMOW44EJ.jpg", 7.9),
+            HindiItemDef(587412, "K.G.F: Chapter 2", "2022", "https://image.tmdb.org/t/p/w185/khNVygolU0TxLIDWff5tQlAhZ23.jpg", 7.7),
+            HindiItemDef(496331, "Brahmāstra Part One: Shiva", "2022", "https://image.tmdb.org/t/p/w185/x61qdvHIsr9U53FwoLVDQqAGur0.jpg", 6.5),
+            HindiItemDef(858485, "Kantara", "2022", "https://image.tmdb.org/t/p/w185/jIsKmkxMzdCZ0Ux1GVSnu8m6Na6.jpg", 7.4),
+            HindiItemDef(599925, "Shershaah", "2021", "https://image.tmdb.org/t/p/w185/zGvFnwoXJKrYnKhoVPytqkqCJ8V.jpg", 7.8),
+            HindiItemDef(632747, "Sooryavanshi", "2021", "https://image.tmdb.org/t/p/w185/632747.jpg", 6.5),
+            HindiItemDef(580489, "Bhool Bhulaiyaa 2", "2022", "https://image.tmdb.org/t/p/w185/580489.jpg", 6.3),
+            HindiItemDef(848116, "Rocky Aur Rani Kii Prem Kahaani", "2023", "https://image.tmdb.org/t/p/w185/vTQIqlxUkOuyf2UKhlM2OUaFGKz.jpg", 6.7),
+            HindiItemDef(799177, "Bhediya", "2022", "https://image.tmdb.org/t/p/w185/iZtq44ZmxBW0E3tAeLG6UdJe9aj.jpg", 6.8),
+            HindiItemDef(360814, "Dangal", "2016", "https://image.tmdb.org/t/p/w185/360814.jpg", 8.1),
+            HindiItemDef(346648, "Bajrangi Bhaijaan", "2015", "https://image.tmdb.org/t/p/w185/346648.jpg", 7.9),
+            HindiItemDef(585268, "War", "2019", "https://image.tmdb.org/t/p/w185/585268.jpg", 6.9)
+        )
+
+        val CURATED_HINDI_ACTION = listOf(
+            HindiItemDef(872906, "Jawan", "2023", "https://image.tmdb.org/t/p/w185/jFt1gS4BGHlK8xt76Y81Alp4dbt.jpg", 7.1),
+            HindiItemDef(864692, "Pathaan", "2023", "https://image.tmdb.org/t/p/w185/arf00BkwvXo0CFKbaD9OpqdE4Nu.jpg", 6.6),
+            HindiItemDef(1014214, "Singham Again", "2024", "https://image.tmdb.org/t/p/w185/2JbNkHg8m7LaBy61LyrnnlenaxY.jpg", 6.2),
+            HindiItemDef(720557, "Tiger 3", "2023", "https://image.tmdb.org/t/p/w185/7wgED7Yx9VLcNWSO91VgwicHmMD.jpg", 6.0),
+            HindiItemDef(857598, "Pushpa 2 - The Rule", "2024", "https://image.tmdb.org/t/p/w185/1T21FblunT0y8fz7YaW8JMYgUKm.jpg", 6.8),
+            HindiItemDef(801688, "Kalki 2898-AD", "2024", "https://image.tmdb.org/t/p/w185/rstcAnBeCkxNQjNp3YXrF6IP1tW.jpg", 7.1),
+            HindiItemDef(781732, "Animal", "2023", "https://image.tmdb.org/t/p/w185/hr9rjR3J0xBBKmlJ4n3gHId9ccx.jpg", 6.8),
+            HindiItemDef(885331, "Gadar 2", "2023", "https://image.tmdb.org/t/p/w185/brCBYKGQaxZZcwmFF6OIxZLdKVU.jpg", 6.2),
+            HindiItemDef(579974, "RRR", "2022", "https://image.tmdb.org/t/p/w185/wE0I6efAW4cDDmZQWtwZMOW44EJ.jpg", 7.9),
+            HindiItemDef(587412, "K.G.F: Chapter 2", "2022", "https://image.tmdb.org/t/p/w185/khNVygolU0TxLIDWff5tQlAhZ23.jpg", 7.7),
+            HindiItemDef(1083241, "Baby John", "2024", "https://image.tmdb.org/t/p/w185/5Oqsh17dq0cIRFPynPNy5elmyxW.jpg", 6.5),
+            HindiItemDef(1257960, "Sikandar", "2025", "https://image.tmdb.org/t/p/w185/41s42CRXafa3OuRGvCtfYPEBmse.jpg", 6.5),
+            HindiItemDef(902897, "Yodha", "2024", "https://image.tmdb.org/t/p/w185/eQxU0jU7o8w7fC9B5b8X8m1P3l5.jpg", 6.1),
+            HindiItemDef(599925, "Shershaah", "2021", "https://image.tmdb.org/t/p/w185/zGvFnwoXJKrYnKhoVPytqkqCJ8V.jpg", 7.8)
+        )
+
+        val CURATED_HINDI_COMEDY = listOf(
+            HindiItemDef(1112426, "Stree 2", "2024", "https://image.tmdb.org/t/p/w185/nfnhwfUEFuSOxxf4jDdBlY6Lccw.jpg", 7.3),
+            HindiItemDef(980599, "Bhool Bhulaiyaa 3", "2024", "https://image.tmdb.org/t/p/w185/3AfHD1HoaQpQwKH8kxRdBKVmzeU.jpg", 6.0),
+            HindiItemDef(984101, "Bad Newz", "2024", "https://image.tmdb.org/t/p/w185/qDlqxGATpYBWqGciPB4tmQm3bFT.jpg", 5.5),
+            HindiItemDef(1187058, "Munjya", "2024", "https://image.tmdb.org/t/p/w185/ylYdXu0SM79Qs7vOz6q7mBxanVD.jpg", 6.5),
+            HindiItemDef(960876, "Dunki", "2023", "https://image.tmdb.org/t/p/w185/kPRb1mbVHGop0egQ7153y0lhzGL.jpg", 6.8),
+            HindiItemDef(580489, "Bhool Bhulaiyaa 2", "2022", "https://image.tmdb.org/t/p/w185/580489.jpg", 6.3),
+            HindiItemDef(848116, "Rocky Aur Rani Kii Prem Kahaani", "2023", "https://image.tmdb.org/t/p/w185/vTQIqlxUkOuyf2UKhlM2OUaFGKz.jpg", 6.7),
+            HindiItemDef(20453, "3 Idiots", "2009", "https://image.tmdb.org/t/p/w185/20453.jpg", 8.4),
+            HindiItemDef(297222, "PK", "2014", "https://image.tmdb.org/t/p/w185/297222.jpg", 7.7),
+            HindiItemDef(592834, "Chhichhore", "2019", "https://image.tmdb.org/t/p/w185/592834.jpg", 7.5)
+        )
+
+        val CURATED_HINDI_THRILLER = listOf(
+            HindiItemDef(1029827, "Drishyam 2", "2022", "https://image.tmdb.org/t/p/w185/wk8Vu0DI0MiNLaXXiVqAwjLRKL5.jpg", 8.1),
+            HindiItemDef(1187619, "Shaitaan", "2024", "https://image.tmdb.org/t/p/w185/oRvFzcagAcC6Q317xtV7QXzwBnj.jpg", 6.7),
+            HindiItemDef(1233531, "Article 370", "2024", "https://image.tmdb.org/t/p/w185/9VTemjHMpyxzfC3JsG2aFy8Bf9Y.jpg", 7.2),
+            HindiItemDef(896350, "Merry Christmas", "2024", "https://image.tmdb.org/t/p/w185/d2e1B4r8l8k3N5b7C9a1M4w7P2y.jpg", 7.0),
+            HindiItemDef(748783, "The Kashmir Files", "2022", "https://image.tmdb.org/t/p/w185/748783.jpg", 7.2),
+            HindiItemDef(534780, "Andhadhun", "2018", "https://image.tmdb.org/t/p/w185/534780.jpg", 8.2),
+            HindiItemDef(559907, "Badla", "2019", "https://image.tmdb.org/t/p/w185/559907.jpg", 7.1),
+            HindiItemDef(341012, "Drishyam", "2015", "https://image.tmdb.org/t/p/w185/341012.jpg", 8.3),
+            HindiItemDef(509967, "Raazi", "2018", "https://image.tmdb.org/t/p/w185/509967.jpg", 7.7)
+        )
+
+        val CURATED_HINDI_ROMANCE = listOf(
+            HindiItemDef(848116, "Rocky Aur Rani Kii Prem Kahaani", "2023", "https://image.tmdb.org/t/p/w185/vTQIqlxUkOuyf2UKhlM2OUaFGKz.jpg", 6.7),
+            HindiItemDef(1072790, "Teri Baaton Mein Aisa Uljha Jiya", "2024", "https://image.tmdb.org/t/p/w185/2gL8d3k5l8w4m1p7n2b9c5v8x4y.jpg", 6.2),
+            HindiItemDef(828559, "Sita Ramam", "2022", "https://image.tmdb.org/t/p/w185/828559.jpg", 8.2),
+            HindiItemDef(599925, "Shershaah", "2021", "https://image.tmdb.org/t/p/w185/zGvFnwoXJKrYnKhoVPytqkqCJ8V.jpg", 7.8),
+            HindiItemDef(537915, "Kabir Singh", "2019", "https://image.tmdb.org/t/p/w185/537915.jpg", 6.9),
+            HindiItemDef(184341, "Yeh Jawaani Hai Deewani", "2013", "https://image.tmdb.org/t/p/w185/184341.jpg", 7.2),
+            HindiItemDef(14729, "Jab We Met", "2007", "https://image.tmdb.org/t/p/w185/14729.jpg", 7.8),
+            HindiItemDef(206, "Dilwale Dulhania Le Jayenge", "1995", "https://image.tmdb.org/t/p/w185/206.jpg", 8.6)
+        )
+
+        val CURATED_HINDI_HORROR = listOf(
+            HindiItemDef(1112426, "Stree 2", "2024", "https://image.tmdb.org/t/p/w185/nfnhwfUEFuSOxxf4jDdBlY6Lccw.jpg", 7.3),
+            HindiItemDef(980599, "Bhool Bhulaiyaa 3", "2024", "https://image.tmdb.org/t/p/w185/3AfHD1HoaQpQwKH8kxRdBKVmzeU.jpg", 6.0),
+            HindiItemDef(1187058, "Munjya", "2024", "https://image.tmdb.org/t/p/w185/ylYdXu0SM79Qs7vOz6q7mBxanVD.jpg", 6.5),
+            HindiItemDef(1187619, "Shaitaan", "2024", "https://image.tmdb.org/t/p/w185/oRvFzcagAcC6Q317xtV7QXzwBnj.jpg", 6.7),
+            HindiItemDef(580489, "Bhool Bhulaiyaa 2", "2022", "https://image.tmdb.org/t/p/w185/580489.jpg", 6.3),
+            HindiItemDef(799177, "Bhediya", "2022", "https://image.tmdb.org/t/p/w185/iZtq44ZmxBW0E3tAeLG6UdJe9aj.jpg", 6.8),
+            HindiItemDef(538858, "Tumbbad", "2018", "https://image.tmdb.org/t/p/w185/538858.jpg", 8.2),
+            HindiItemDef(488661, "Pari", "2018", "https://image.tmdb.org/t/p/w185/488661.jpg", 6.6),
+            HindiItemDef(14856, "1920", "2008", "https://image.tmdb.org/t/p/w185/14856.jpg", 6.5)
+        )
+
+        val CURATED_HINDI_SCIFI = listOf(
+            HindiItemDef(801688, "Kalki 2898-AD", "2024", "https://image.tmdb.org/t/p/w185/rstcAnBeCkxNQjNp3YXrF6IP1tW.jpg", 7.1),
+            HindiItemDef(496331, "Brahmāstra Part One: Shiva", "2022", "https://image.tmdb.org/t/p/w185/x61qdvHIsr9U53FwoLVDQqAGur0.jpg", 6.5),
+            HindiItemDef(74534, "Ra.One", "2011", "https://image.tmdb.org/t/p/w185/74534.jpg", 5.5),
+            HindiItemDef(200727, "Krrish 3", "2013", "https://image.tmdb.org/t/p/w185/200727.jpg", 5.8),
+            HindiItemDef(25189, "Koi... Mil Gaya", "2003", "https://image.tmdb.org/t/p/w185/25189.jpg", 7.1),
+            HindiItemDef(438674, "2.0", "2018", "https://image.tmdb.org/t/p/w185/438674.jpg", 6.1)
+        )
+
+        val CURATED_HINDI_FAMILY = listOf(
+            HindiItemDef(20453, "3 Idiots", "2009", "https://image.tmdb.org/t/p/w185/20453.jpg", 8.4),
+            HindiItemDef(346648, "Bajrangi Bhaijaan", "2015", "https://image.tmdb.org/t/p/w185/346648.jpg", 7.9),
+            HindiItemDef(360814, "Dangal", "2016", "https://image.tmdb.org/t/p/w185/360814.jpg", 8.1),
+            HindiItemDef(1163258, "12th Fail", "2023", "https://image.tmdb.org/t/p/w185/eebUPRI4Z5e1Z7Hev4JZAwMIFkX.jpg", 8.3),
+            HindiItemDef(592834, "Chhichhore", "2019", "https://image.tmdb.org/t/p/w185/592834.jpg", 7.5),
+            HindiItemDef(297222, "PK", "2014", "https://image.tmdb.org/t/p/w185/297222.jpg", 7.7)
+        )
+
+        val CURATED_HINDI_SERIES_LIST = listOf(
+            HindiItemDef(79141, "Sacred Games", "2018", "https://image.tmdb.org/t/p/w185/79141.jpg", 8.1, mediaType = "tv"),
+            HindiItemDef(84661, "Mirzapur", "2018", "https://image.tmdb.org/t/p/w185/84661.jpg", 8.4, mediaType = "tv"),
+            HindiItemDef(93405, "The Family Man", "2019", "https://image.tmdb.org/t/p/w185/93405.jpg", 8.6, mediaType = "tv"),
+            HindiItemDef(101344, "Panchayat", "2020", "https://image.tmdb.org/t/p/w185/101344.jpg", 8.7, mediaType = "tv"),
+            HindiItemDef(103222, "Paatal Lok", "2020", "https://image.tmdb.org/t/p/w185/103222.jpg", 8.0, mediaType = "tv"),
+            HindiItemDef(200843, "Farzi", "2023", "https://image.tmdb.org/t/p/w185/200843.jpg", 8.2, mediaType = "tv"),
+            HindiItemDef(88040, "Delhi Crime", "2019", "https://image.tmdb.org/t/p/w185/88040.jpg", 8.4, mediaType = "tv"),
+            HindiItemDef(88584, "Kota Factory", "2019", "https://image.tmdb.org/t/p/w185/88584.jpg", 8.5, mediaType = "tv"),
+            HindiItemDef(112888, "Mismatched", "2020", "https://image.tmdb.org/t/p/w185/112888.jpg", 7.2, mediaType = "tv"),
+            HindiItemDef(133701, "Rana Naidu", "2023", "https://image.tmdb.org/t/p/w185/133701.jpg", 6.5, mediaType = "tv"),
+            HindiItemDef(97893, "Jamtara – Sabka Number Ayega", "2020", "https://image.tmdb.org/t/p/w185/97893.jpg", 7.6, mediaType = "tv"),
+            HindiItemDef(238310, "The Railway Men", "2023", "https://image.tmdb.org/t/p/w185/238310.jpg", 8.1, mediaType = "tv"),
+            HindiItemDef(247169, "Maamla Legal Hai", "2024", "https://image.tmdb.org/t/p/w185/247169.jpg", 7.5, mediaType = "tv"),
+            HindiItemDef(99966, "Asur", "2020", "https://image.tmdb.org/t/p/w185/99966.jpg", 8.4, mediaType = "tv")
+        )
+
+        val CURATED_HINDI_ACTION_SERIES = listOf(
+            HindiItemDef(79141, "Sacred Games", "2018", "https://image.tmdb.org/t/p/w185/79141.jpg", 8.1, mediaType = "tv"),
+            HindiItemDef(84661, "Mirzapur", "2018", "https://image.tmdb.org/t/p/w185/84661.jpg", 8.4, mediaType = "tv"),
+            HindiItemDef(93405, "The Family Man", "2019", "https://image.tmdb.org/t/p/w185/93405.jpg", 8.6, mediaType = "tv"),
+            HindiItemDef(200843, "Farzi", "2023", "https://image.tmdb.org/t/p/w185/200843.jpg", 8.2, mediaType = "tv"),
+            HindiItemDef(133701, "Rana Naidu", "2023", "https://image.tmdb.org/t/p/w185/133701.jpg", 6.5, mediaType = "tv")
+        )
+
+        val CURATED_HINDI_CRIME_SERIES = listOf(
+            HindiItemDef(88040, "Delhi Crime", "2019", "https://image.tmdb.org/t/p/w185/88040.jpg", 8.4, mediaType = "tv"),
+            HindiItemDef(103222, "Paatal Lok", "2020", "https://image.tmdb.org/t/p/w185/103222.jpg", 8.0, mediaType = "tv"),
+            HindiItemDef(99966, "Asur", "2020", "https://image.tmdb.org/t/p/w185/99966.jpg", 8.4, mediaType = "tv"),
+            HindiItemDef(97893, "Jamtara – Sabka Number Ayega", "2020", "https://image.tmdb.org/t/p/w185/97893.jpg", 7.6, mediaType = "tv"),
+            HindiItemDef(200843, "Farzi", "2023", "https://image.tmdb.org/t/p/w185/200843.jpg", 8.2, mediaType = "tv")
+        )
+
+        val CURATED_NETFLIX_HINDI_MOVIES = listOf(
+            HindiItemDef(1112426, "Stree 2", "2024", "https://image.tmdb.org/t/p/w185/nfnhwfUEFuSOxxf4jDdBlY6Lccw.jpg", 7.3),
+            HindiItemDef(1014214, "Singham Again", "2024", "https://image.tmdb.org/t/p/w185/2JbNkHg8m7LaBy61LyrnnlenaxY.jpg", 6.2),
+            HindiItemDef(984101, "Bad Newz", "2024", "https://image.tmdb.org/t/p/w185/qDlqxGATpYBWqGciPB4tmQm3bFT.jpg", 5.5),
+            HindiItemDef(1233531, "Article 370", "2024", "https://image.tmdb.org/t/p/w185/9VTemjHMpyxzfC3JsG2aFy8Bf9Y.jpg", 7.2),
+            HindiItemDef(872906, "Jawan", "2023", "https://image.tmdb.org/t/p/w185/jFt1gS4BGHlK8xt76Y81Alp4dbt.jpg", 7.1),
+            HindiItemDef(960876, "Dunki", "2023", "https://image.tmdb.org/t/p/w185/kPRb1mbVHGop0egQ7153y0lhzGL.jpg", 6.8),
+            HindiItemDef(781732, "Animal", "2023", "https://image.tmdb.org/t/p/w185/hr9rjR3J0xBBKmlJ4n3gHId9ccx.jpg", 6.8),
+            HindiItemDef(1163258, "12th Fail", "2023", "https://image.tmdb.org/t/p/w185/eebUPRI4Z5e1Z7Hev4JZAwMIFkX.jpg", 8.3),
+            HindiItemDef(580489, "Bhool Bhulaiyaa 2", "2022", "https://image.tmdb.org/t/p/w185/580489.jpg", 6.3)
+        )
+
+        val CURATED_NETFLIX_HINDI_SERIES = listOf(
+            HindiItemDef(79141, "Sacred Games", "2018", "https://image.tmdb.org/t/p/w185/79141.jpg", 8.1, mediaType = "tv"),
+            HindiItemDef(88040, "Delhi Crime", "2019", "https://image.tmdb.org/t/p/w185/88040.jpg", 8.4, mediaType = "tv"),
+            HindiItemDef(238310, "The Railway Men", "2023", "https://image.tmdb.org/t/p/w185/238310.jpg", 8.1, mediaType = "tv"),
+            HindiItemDef(88584, "Kota Factory", "2019", "https://image.tmdb.org/t/p/w185/88584.jpg", 8.5, mediaType = "tv"),
+            HindiItemDef(247169, "Maamla Legal Hai", "2024", "https://image.tmdb.org/t/p/w185/247169.jpg", 7.5, mediaType = "tv"),
+            HindiItemDef(112888, "Mismatched", "2020", "https://image.tmdb.org/t/p/w185/112888.jpg", 7.2, mediaType = "tv"),
+            HindiItemDef(133701, "Rana Naidu", "2023", "https://image.tmdb.org/t/p/w185/133701.jpg", 6.5, mediaType = "tv"),
+            HindiItemDef(97893, "Jamtara – Sabka Number Ayega", "2020", "https://image.tmdb.org/t/p/w185/97893.jpg", 7.6, mediaType = "tv")
+        )
+
+        val CURATED_PRIME_HINDI_MOVIES = listOf(
+            HindiItemDef(801688, "Kalki 2898-AD", "2024", "https://image.tmdb.org/t/p/w185/rstcAnBeCkxNQjNp3YXrF6IP1tW.jpg", 7.1),
+            HindiItemDef(857598, "Pushpa 2 - The Rule", "2024", "https://image.tmdb.org/t/p/w185/1T21FblunT0y8fz7YaW8JMYgUKm.jpg", 6.8),
+            HindiItemDef(1112426, "Stree 2", "2024", "https://image.tmdb.org/t/p/w185/nfnhwfUEFuSOxxf4jDdBlY6Lccw.jpg", 7.3),
+            HindiItemDef(1014214, "Singham Again", "2024", "https://image.tmdb.org/t/p/w185/2JbNkHg8m7LaBy61LyrnnlenaxY.jpg", 6.2),
+            HindiItemDef(781732, "Animal", "2023", "https://image.tmdb.org/t/p/w185/hr9rjR3J0xBBKmlJ4n3gHId9ccx.jpg", 6.8),
+            HindiItemDef(872906, "Jawan", "2023", "https://image.tmdb.org/t/p/w185/jFt1gS4BGHlK8xt76Y81Alp4dbt.jpg", 7.1),
+            HindiItemDef(579974, "RRR", "2022", "https://image.tmdb.org/t/p/w185/wE0I6efAW4cDDmZQWtwZMOW44EJ.jpg", 7.9),
+            HindiItemDef(587412, "K.G.F: Chapter 2", "2022", "https://image.tmdb.org/t/p/w185/khNVygolU0TxLIDWff5tQlAhZ23.jpg", 7.7),
+            HindiItemDef(1029827, "Drishyam 2", "2022", "https://image.tmdb.org/t/p/w185/wk8Vu0DI0MiNLaXXiVqAwjLRKL5.jpg", 8.1)
+        )
+
+        val CURATED_PRIME_HINDI_SERIES = listOf(
+            HindiItemDef(84661, "Mirzapur", "2018", "https://image.tmdb.org/t/p/w185/84661.jpg", 8.4, mediaType = "tv"),
+            HindiItemDef(93405, "The Family Man", "2019", "https://image.tmdb.org/t/p/w185/93405.jpg", 8.6, mediaType = "tv"),
+            HindiItemDef(101344, "Panchayat", "2020", "https://image.tmdb.org/t/p/w185/101344.jpg", 8.7, mediaType = "tv"),
+            HindiItemDef(103222, "Paatal Lok", "2020", "https://image.tmdb.org/t/p/w185/103222.jpg", 8.0, mediaType = "tv"),
+            HindiItemDef(200843, "Farzi", "2023", "https://image.tmdb.org/t/p/w185/200843.jpg", 8.2, mediaType = "tv")
+        )
 
         val CURATED_HINDI_SPOTLIGHT = listOf(
             MediaItem(
