@@ -599,7 +599,7 @@ class NetMirrorRepository(
             val first = array.optJSONObject(0) ?: continue
             val sources = first.optJSONArray("sources") ?: continue
 
-            // Check if master manifest uses dummy 220884 video placeholder
+            // Check if master manifest uses dummy 220884 video placeholder or anti-abuse warning
             var syntheticMasterSource: StreamSource? = null
             for (i in 0 until sources.length()) {
                 val s = sources.optJSONObject(i) ?: continue
@@ -617,7 +617,11 @@ class NetMirrorRepository(
                             if (resp.isSuccessful) resp.body?.string().orEmpty() else null
                         }
                     }.getOrNull()
-                    if (masterText != null && masterText.contains("/files/220884/")) {
+                    if (masterText != null && (
+                        masterText.contains("/files/220884/") ||
+                        masterText.contains("Too Many Requests", ignoreCase = true) ||
+                        masterText.contains("Stop Abuse", ignoreCase = true)
+                    )) {
                         syntheticMasterSource = buildSyntheticMaster(targetId, masterText)
                         break
                     }
@@ -681,19 +685,53 @@ class NetMirrorRepository(
                 }
             }
         }
-        if (audioTracks.isEmpty()) return@withContext null
 
-        val (_, _, firstAudioUri) = audioTracks.first()
-        val audioReq = Request.Builder()
-            .url(firstAudioUri)
-            .header("User-Agent", USER_AGENT)
-            .header("Referer", "https://net52.cc/")
-            .build()
-        val audioM3u8 = runCatching {
-            client.newCall(audioReq).execute().use { resp ->
-                if (resp.isSuccessful) resp.body?.string().orEmpty() else null
+        // If audio tracks were not found in EXT-X-MEDIA or empty, synthesize alternate paths directly
+        val candidateAudioUris = mutableListOf<String>()
+        if (audioTracks.isNotEmpty()) {
+            candidateAudioUris.add(audioTracks.first().third)
+        }
+
+        // Common NetMirror / CDN alternate patterns for synthetic streaming
+        val alternateHosts = listOf("s22.freecdn4.top", "s21.freecdn4.top", "s20.freecdn4.top", "makhi3.top", "makhi2.top", "makhi1.top")
+        for (host in alternateHosts) {
+            val altUri = "https://$host/files/$targetId/a/0/0.m3u8"
+            if (!candidateAudioUris.contains(altUri)) {
+                candidateAudioUris.add(altUri)
             }
-        }.getOrNull() ?: return@withContext null
+        }
+
+        var workingAudioUri: String? = null
+        var audioM3u8: String? = null
+
+        for (candidateUri in candidateAudioUris) {
+            val audioReq = Request.Builder()
+                .url(candidateUri)
+                .header("User-Agent", USER_AGENT)
+                .header("Referer", "https://net52.cc/")
+                .build()
+            val text = runCatching {
+                client.newCall(audioReq).execute().use { resp ->
+                    if (resp.isSuccessful) resp.body?.string().orEmpty() else null
+                }
+            }.getOrNull()
+
+            // Verify that audio playlist is not anti-abuse or rate-limited
+            if (text != null && text.contains("#EXTINF") &&
+                !text.contains("Too Many Requests", ignoreCase = true) &&
+                !text.contains("Stop Abuse", ignoreCase = true)
+            ) {
+                workingAudioUri = candidateUri
+                audioM3u8 = text
+                break
+            }
+        }
+
+        if (workingAudioUri == null || audioM3u8 == null) return@withContext null
+
+        if (audioTracks.isEmpty()) {
+            audioTracks.add(Triple("hin", "Hindi", workingAudioUri))
+        }
 
         val cacheBase = context?.cacheDir ?: java.io.File(System.getProperty("java.io.tmpdir") ?: "/tmp")
         val hlsDir = java.io.File(cacheBase, "hls/$targetId").apply { mkdirs() }
@@ -701,8 +739,8 @@ class NetMirrorRepository(
         // Write audio tracks
         for (i in audioTracks.indices) {
             val (_, _, uri) = audioTracks[i]
-            val aReq = if (i == 0) null else Request.Builder().url(uri).header("User-Agent", USER_AGENT).header("Referer", "https://net52.cc/").build()
-            val aText = if (i == 0) audioM3u8 else runCatching {
+            val aReq = if (i == 0 && uri == workingAudioUri) null else Request.Builder().url(uri).header("User-Agent", USER_AGENT).header("Referer", "https://net52.cc/").build()
+            val aText = if (i == 0 && uri == workingAudioUri) audioM3u8 else runCatching {
                 client.newCall(aReq!!).execute().use { if (it.isSuccessful) it.body?.string().orEmpty() else null }
             }.getOrNull() ?: continue
 
@@ -717,10 +755,10 @@ class NetMirrorRepository(
             java.io.File(hlsDir, "audio_$i.m3u8").writeText(rewrittenAudio)
         }
 
-        // Generate synthetic video playlists (1080p, 720p, 480p)
+        // Generate synthetic video playlists (1080p, 720p, 480p) from working audio CDN path
         val resolutions = listOf("1080p" to "1920x1080", "720p" to "1280x720", "480p" to "854x480")
         for ((res, _) in resolutions) {
-            val videoBase = firstAudioUri.replace(Regex("/a/\\d+/.*$"), "/$res/")
+            val videoBase = workingAudioUri.replace(Regex("/a/\\d+/.*$"), "/$res/")
             val rewrittenVideo = audioM3u8.lines().joinToString("\n") { l ->
                 val tr = l.trim()
                 if (tr.endsWith(".js") || tr.contains(".js?")) {
