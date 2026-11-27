@@ -78,7 +78,29 @@ fun PlatformSelectionScreen(
         Spacer(Modifier.height(32.dp))
         Text("Choose your platforms", color = TextPrimary, style = MaterialTheme.typography.headlineLarge)
         Spacer(Modifier.height(8.dp))
-        Text("Your Home feed will be built around these services.", color = TextSecondary, style = MaterialTheme.typography.bodyMedium)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "Your Home feed will be built around these services.",
+                color = TextSecondary,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f)
+            )
+            val allSelected = selected.size == NetMirrorRepository.PLATFORMS.size
+            Text(
+                text = if (allSelected) "All selected" else "Select all",
+                color = Teal,
+                fontWeight = FontWeight.Bold,
+                fontSize = 12.sp,
+                modifier = Modifier
+                    .clickable {
+                        selected = NetMirrorRepository.PLATFORMS.toSet()
+                    }
+                    .padding(start = 12.dp, top = 4.dp, bottom = 4.dp)
+            )
+        }
         Spacer(Modifier.height(22.dp))
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),

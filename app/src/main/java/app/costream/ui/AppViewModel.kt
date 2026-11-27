@@ -344,6 +344,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
             setDestinationInExternalPublicDir(Environment.DIRECTORY_MOVIES, "CoStream/$fileName")
             setMimeType(source.mimeType ?: "video/mp4")
+            source.headers.forEach { (k, v) -> addRequestHeader(k, v) }
         }
         dm.enqueue(request)
         store.addLocalVideos(listOf(item.copy()))

@@ -3,6 +3,8 @@ package app.costream
 import android.app.Application
 import app.costream.data.AppStore
 import app.costream.data.AuthRepository
+import app.costream.data.DohDns
+import app.costream.data.LocalStreamProxy
 import app.costream.data.NetMirrorRepository
 import okhttp3.Cache
 import okhttp3.OkHttpClient
@@ -17,15 +19,24 @@ class CoStreamApp : Application() {
         private set
     lateinit var store: AppStore
         private set
+    lateinit var streamProxy: LocalStreamProxy
+        private set
 
     override fun onCreate() {
         super.onCreate()
 
+        val apiDispatcher = okhttp3.Dispatcher().apply {
+            maxRequests = 64
+            maxRequestsPerHost = 24
+        }
+
         val httpClient = OkHttpClient.Builder()
+            .dns(DohDns())
+            .dispatcher(apiDispatcher)
             .cache(Cache(File(cacheDir, "http_cache"), 32L * 1024L * 1024L))
-            .connectTimeout(20, TimeUnit.SECONDS)
-            .readTimeout(35, TimeUnit.SECONDS)
-            .callTimeout(50, TimeUnit.SECONDS)
+            .connectTimeout(8, TimeUnit.SECONDS)
+            .readTimeout(12, TimeUnit.SECONDS)
+            .callTimeout(18, TimeUnit.SECONDS)
             .retryOnConnectionFailure(true)
             .addInterceptor { chain ->
                 val request = chain.request()
@@ -38,6 +49,7 @@ class CoStreamApp : Application() {
             }
             .build()
 
+        streamProxy = LocalStreamProxy(httpClient).apply { ensureStarted() }
         netMirrorRepository = NetMirrorRepository(httpClient, this)
         authRepository = AuthRepository(this)
         store = AppStore(this)

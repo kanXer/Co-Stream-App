@@ -51,6 +51,7 @@ import kotlinx.coroutines.launch
 import app.costream.data.HomeCategories
 import app.costream.data.HomeRow
 import app.costream.data.MediaItem
+import app.costream.data.NetMirrorRepository
 import app.costream.data.WatchEntry
 import app.costream.ui.HomeUiState
 import app.costream.ui.components.CoStreamMark
@@ -92,13 +93,14 @@ fun HomeScreen(
     val savedIds = remember(myList) { myList.map { it.id }.toSet() }
     var selectedTab by remember { mutableStateOf(CatalogTab.HOME) }
     var selectedCategory by remember(selectedTab) { mutableStateOf("All") }
+    var selectedPlatform by remember { mutableStateOf<String?>(null) }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(selectedTab) {
         listState.scrollToItem(0)
     }
-    LaunchedEffect(selectedCategory) {
+    LaunchedEffect(selectedCategory, selectedPlatform) {
         listState.scrollToItem(0)
     }
 
@@ -158,9 +160,15 @@ fun HomeScreen(
                     }
                 }
 
-                val currentRows = remember(selectedTab, selectedCategory, state.feed.rows) {
+                val currentRows = remember(selectedTab, selectedCategory, selectedPlatform, state.feed.rows) {
+                    val platformFiltered = if (selectedTab == CatalogTab.HOME && selectedPlatform != null) {
+                        state.feed.rows.filter { it.platform == selectedPlatform }
+                            .ifEmpty { state.feed.rows }
+                    } else {
+                        state.feed.rows
+                    }
                     when (selectedTab) {
-                        CatalogTab.HOME -> state.feed.rows
+                        CatalogTab.HOME -> platformFiltered
                         CatalogTab.MOVIES -> {
                             val movieRows = state.feed.rows
                                 .map { it.copy(items = it.items.filterNot { item -> item.isSeries }) }
@@ -209,6 +217,9 @@ fun HomeScreen(
                     listState = listState,
                     featured = currentFeatured,
                     rows = currentRows,
+                    showPlatforms = selectedTab == CatalogTab.HOME,
+                    selectedPlatform = selectedPlatform,
+                    onSelectPlatform = { selectedPlatform = it },
                     categoryChips = categoryChips,
                     selectedCategory = selectedCategory,
                     onSelectCategory = { selectedCategory = it },
@@ -241,6 +252,9 @@ private fun CatalogHome(
     listState: LazyListState,
     featured: List<MediaItem>,
     rows: List<HomeRow>,
+    showPlatforms: Boolean,
+    selectedPlatform: String?,
+    onSelectPlatform: (String?) -> Unit,
     categoryChips: List<String>,
     selectedCategory: String,
     onSelectCategory: (String) -> Unit,
@@ -288,6 +302,30 @@ private fun CatalogHome(
                         background = Color.Black.copy(alpha = .4f),
                         modifier = Modifier.align(Alignment.TopEnd).padding(top = 82.dp, end = 20.dp)
                     )
+                }
+            }
+            if (showPlatforms) {
+                item {
+                    Spacer(Modifier.height(18.dp))
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 20.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        item {
+                            GenreChip(
+                                text = "All Platforms",
+                                selected = selectedPlatform == null,
+                                onClick = { onSelectPlatform(null) }
+                            )
+                        }
+                        items(NetMirrorRepository.PLATFORMS) { platform ->
+                            GenreChip(
+                                text = NetMirrorRepository.platformLabel(platform),
+                                selected = selectedPlatform == platform,
+                                onClick = { onSelectPlatform(if (selectedPlatform == platform) null else platform) }
+                            )
+                        }
+                    }
                 }
             }
             if (categoryChips.isNotEmpty()) {

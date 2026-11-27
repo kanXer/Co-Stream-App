@@ -101,7 +101,8 @@ data class HomeRow(
     val subtitle: String? = null,
     val items: List<MediaItem>,
     val ranked: Boolean = false,
-    val category: String? = null
+    val category: String? = null,
+    val platform: String? = null
 )
 
 data class HomeFeed(

@@ -228,16 +228,23 @@ fun PlayerScreen(
     var videoHeight by remember { mutableIntStateOf(0) }
 
     val exoPlayer = remember {
+        val streamProxy = (context.applicationContext as app.costream.CoStreamApp).streamProxy
         val httpDataSourceFactory = DefaultHttpDataSource.Factory()
             .setUserAgent(app.costream.data.NetMirrorRepository.USER_AGENT)
             .setConnectTimeoutMs(20_000)
             .setReadTimeoutMs(35_000)
+            .setAllowCrossProtocolRedirects(true)
             .apply {
                 if (request.source.headers.isNotEmpty()) {
                     setDefaultRequestProperties(request.source.headers)
                 }
             }
-        val dataSourceFactory = DefaultDataSource.Factory(context, httpDataSourceFactory)
+        val resolvingHttpFactory = androidx.media3.datasource.ResolvingDataSource.Factory(httpDataSourceFactory) { dataSpec ->
+            val raw = dataSpec.uri.toString()
+            val proxied = streamProxy.proxyUrl(raw, request.source.headers)
+            if (proxied != raw) dataSpec.withUri(Uri.parse(proxied)) else dataSpec
+        }
+        val dataSourceFactory = DefaultDataSource.Factory(context, resolvingHttpFactory)
         val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMs(
                 /* minBufferMs = */ 60_000,

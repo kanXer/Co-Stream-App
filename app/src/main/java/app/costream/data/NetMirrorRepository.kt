@@ -53,10 +53,10 @@ class NetMirrorRepository(
                     else -> emptyList()
                 }
                 if (curatedMovies.isNotEmpty()) {
-                    add(HomeRow("🏆 Top 10 Hindi Movies on $label", "Trending movies with Hindi audio", curatedMovies.map { it.toMediaItem() }, ranked = true, category = HomeCategories.HINDI_MOVIES))
+                    add(HomeRow("🏆 Top 10 Hindi Movies on $label", "Trending movies with Hindi audio", curatedMovies.map { it.toMediaItem() }, ranked = true, category = HomeCategories.HINDI_MOVIES, platform = platform))
                 }
                 if (curatedSeries.isNotEmpty()) {
-                    add(HomeRow("📺 Top 10 Hindi Web Series on $label", "Trending Indian and Hindi series", curatedSeries.map { it.toMediaItem() }, ranked = true, category = HomeCategories.HINDI_SERIES))
+                    add(HomeRow("📺 Top 10 Hindi Web Series on $label", "Trending Indian and Hindi series", curatedSeries.map { it.toMediaItem() }, ranked = true, category = HomeCategories.HINDI_SERIES, platform = platform))
                 }
             }
             add(HomeRow("🔥 Most Popular Hindi Movies", "All-time Bollywood fan favourites", CURATED_HINDI_POPULAR.map { it.toMediaItem() }, category = HomeCategories.HINDI_MOVIES))
@@ -86,8 +86,8 @@ class NetMirrorRepository(
         val feed = coroutineScope {
             val currentYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
 
-            // Curated rails for selected platforms + ensure Netflix & PrimeVideo are included
-            val platformsToFetch = (selected + listOf("Netflix", "PrimeVideo")).distinct()
+            // Curated rails for selected platforms + all supported streaming platforms
+            val platformsToFetch = (selected + PLATFORMS).distinct()
             val curatedDeferred = platformsToFetch.associateWith { platform ->
                 async { runCatching { curated(platform) }.getOrDefault(emptyList()) }
             }
@@ -228,7 +228,8 @@ class NetMirrorRepository(
                                 subtitle = "Trending movies with Hindi audio",
                                 items = pMovies,
                                 ranked = true,
-                                category = HomeCategories.HINDI_MOVIES
+                                category = HomeCategories.HINDI_MOVIES,
+                                platform = platform
                             )
                         )
                     }
@@ -239,7 +240,8 @@ class NetMirrorRepository(
                                 subtitle = "Trending Indian and Hindi series",
                                 items = pSeries,
                                 ranked = true,
-                                category = HomeCategories.HINDI_SERIES
+                                category = HomeCategories.HINDI_SERIES,
+                                platform = platform
                             )
                         )
                     }
@@ -395,8 +397,9 @@ class NetMirrorRepository(
         // Primary: sources from embed API
         var sources = if (embed != null) parseEmbedSources(embed) else emptyList()
 
-        // Fallback: If embed API returns no stream (e.g. Jailer 2), resolve classic NetMirror playlist
-        if (sources.isEmpty()) {
+        // Verify primary embed stream isn't rate-limited (e.g. HTTP 429 from CDN); fall back to classic HLS if blocked
+        val primaryReachable = sources.firstOrNull()?.let { isStreamReachable(it) } ?: false
+        if (sources.isEmpty() || !primaryReachable) {
             val candidateImdb = embed?.optString("imdb")?.takeIf { it.isNotBlank() }
                 ?: metadata.optString("imdb_id").takeIf { it.isNotBlank() }
                 ?: metadata.optString("imdbId").takeIf { it.isNotBlank() }
@@ -532,6 +535,30 @@ class NetMirrorRepository(
         return root
     }
 
+    private suspend fun isStreamReachable(source: StreamSource): Boolean = withContext(Dispatchers.IO) {
+        if (!source.url.startsWith("http", ignoreCase = true)) return@withContext true
+        runCatching {
+            val builder = Request.Builder()
+                .url(source.url)
+                .header("Range", "bytes=0-1")
+                .header("Accept", "*/*")
+            source.headers.forEach { (k, v) -> builder.header(k, v) }
+            fastProbeClient.newCall(builder.build()).execute().use { resp ->
+                val ok = resp.isSuccessful || resp.code == 206
+                runCatching { android.util.Log.d("NetMirrorRepo", "Probe ${source.url.take(60)} -> ${resp.code}") }
+                ok
+            }
+        }.getOrDefault(false)
+    }
+
+    private val fastProbeClient: OkHttpClient by lazy {
+        client.newBuilder()
+            .connectTimeout(4, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(6, java.util.concurrent.TimeUnit.SECONDS)
+            .callTimeout(8, java.util.concurrent.TimeUnit.SECONDS)
+            .build()
+    }
+
     /**
      * Resolves streams from classic NetMirror CDN (net52.cc) for titles that have no stream in net27 embed API (e.g. Jailer 2).
      */
@@ -553,7 +580,7 @@ class NetMirrorRepository(
             .build()
 
         val searchJson = runCatching {
-            client.newCall(searchRequest).execute().use { resp ->
+            fastProbeClient.newCall(searchRequest).execute().use { resp ->
                 if (resp.isSuccessful) JSONObject(resp.body?.string().orEmpty()) else null
             }
         }.getOrNull()
@@ -590,7 +617,7 @@ class NetMirrorRepository(
                 .build()
 
             val playJson = runCatching {
-                client.newCall(playRequest).execute().use { resp ->
+                fastProbeClient.newCall(playRequest).execute().use { resp ->
                     if (resp.isSuccessful) resp.body?.string().orEmpty() else null
                 }
             }.getOrNull() ?: continue
@@ -711,7 +738,7 @@ class NetMirrorRepository(
                 .header("Referer", "https://net52.cc/")
                 .build()
             val text = runCatching {
-                client.newCall(audioReq).execute().use { resp ->
+                fastProbeClient.newCall(audioReq).execute().use { resp ->
                     if (resp.isSuccessful) resp.body?.string().orEmpty() else null
                 }
             }.getOrNull()
@@ -756,19 +783,36 @@ class NetMirrorRepository(
         }
 
         // Generate synthetic video playlists (1080p, 720p, 480p) from working audio CDN path
+        val firstAudioSeg = audioM3u8.lines().map { it.trim() }.firstOrNull { it.endsWith(".js") || it.contains(".js?") }
+        val baseSegName = firstAudioSeg?.substringAfterLast("/")?.substringBefore("?")?.substringBeforeLast(".js")
         val resolutions = listOf("1080p" to "1920x1080", "720p" to "1280x720", "480p" to "854x480")
-        for ((res, _) in resolutions) {
+        val workingResolutions = mutableListOf<Pair<String, String>>()
+        for ((res, dim) in resolutions) {
             val videoBase = workingAudioUri.replace(Regex("/a/\\d+/.*$"), "/$res/")
+            val detectedExt = if (baseSegName != null) {
+                listOf(".woff2", ".jpg", ".jpeg", ".ts", ".js").firstOrNull { ext ->
+                    val probeUrl = "${videoBase}${baseSegName}$ext"
+                    val req = Request.Builder().url(probeUrl).head()
+                        .header("User-Agent", USER_AGENT)
+                        .header("Referer", "https://net52.cc/")
+                        .build()
+                    runCatching { fastProbeClient.newCall(req).execute().use { it.isSuccessful } }.getOrDefault(false)
+                }
+            } else null
+            if (detectedExt == null && baseSegName != null) continue
+            val extToUse = detectedExt ?: ".woff2"
+            workingResolutions.add(res to dim)
             val rewrittenVideo = audioM3u8.lines().joinToString("\n") { l ->
                 val tr = l.trim()
                 if (tr.endsWith(".js") || tr.contains(".js?")) {
-                    val woff2 = tr.replace(".js", ".woff2")
-                    val file = if (woff2.startsWith("http")) woff2 else videoBase + woff2
+                    val seg = tr.replace(".js", extToUse)
+                    val file = if (seg.startsWith("http")) seg else videoBase + seg
                     if (file.contains("?")) "$file&file=segment.ts" else "$file?file=segment.ts"
                 } else l
             }
             java.io.File(hlsDir, "video_$res.m3u8").writeText(rewrittenVideo)
         }
+        if (workingResolutions.isEmpty()) return@withContext null
 
         // Build master.m3u8
         val masterBuilder = StringBuilder("#EXTM3U\n#EXT-X-VERSION:3\n")
@@ -778,7 +822,7 @@ class NetMirrorRepository(
             masterBuilder.append("""#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",LANGUAGE="$lang",NAME="$name",DEFAULT=$isDef,AUTOSELECT=$isDef,URI="audio_$i.m3u8"""" + "\n")
         }
         val bandMap = mapOf("1080p" to 1000001, "720p" to 600000, "480p" to 400000)
-        for ((res, dim) in resolutions) {
+        for ((res, dim) in workingResolutions) {
             val isDef = if (res == "720p") ",DEFAULT=YES" else ""
             masterBuilder.append("""#EXT-X-STREAM-INF:BANDWIDTH=${bandMap[res]},AUDIO="aac"$isDef,RESOLUTION=$dim,CLOSED-CAPTIONS=NONE""" + "\n")
             masterBuilder.append("video_$res.m3u8\n")
@@ -930,25 +974,20 @@ class NetMirrorRepository(
     }
 
     private fun mediaHeaders(url: String): Map<String, String> {
-        val host = runCatching { url.toHttpUrl().host }.getOrDefault("")
-        val referer = when {
-            host.endsWith("hakunaymatata.com") -> "https://moviebox.ph/"
-            host.endsWith("mxcontent.net") -> "https://mixdrop.top/"
-            host.endsWith("messycloud.ink") -> "https://netmirror.hair/"
-            host.endsWith("juicybits.io") -> "https://www.messycloud.ink/"
-            host.endsWith("aoneroom.com") -> "https://videodownloader.site/"
-            host.contains("net52.cc") || host.contains("freecdn") || host.endsWith(".top") -> "https://net52.cc/"
-            else -> "https://net27.cc/"
-        }
-        val ua = USER_AGENT
-        return mapOf("Referer" to referer, "User-Agent" to ua)
+        val referer = LocalStreamProxy.refererForUrl(url)
+        return mapOf("Referer" to referer, "User-Agent" to USER_AGENT)
     }
 
     private suspend fun execute(url: String): String = withContext(Dispatchers.IO) {
+        val candidates = if (url.startsWith(baseUrl)) {
+            listOf(url, url, url.replaceFirst(baseUrl, FALLBACK_BASE_URL))
+        } else {
+            listOf(url, url)
+        }
         var failure: Throwable? = null
-        repeat(3) { attempt ->
+        for ((index, targetUrl) in candidates.withIndex()) {
             try {
-                val request = Request.Builder().url(url).header("Accept", "application/json").build()
+                val request = Request.Builder().url(targetUrl).header("Accept", "application/json").build()
                 client.newCall(request).execute().use { response ->
                     if (response.isSuccessful) return@withContext response.body?.string().orEmpty()
                     failure = IOException("Request failed (${response.code})")
@@ -956,15 +995,17 @@ class NetMirrorRepository(
                 }
             } catch (error: Throwable) {
                 failure = error
+                runCatching { android.util.Log.w("NetMirrorRepo", "GET $targetUrl failed: ${error.message}") }
             }
-            if (attempt < 2) delay(350L * (attempt + 1))
+            if (index < candidates.lastIndex) delay(200L)
         }
         throw failure ?: IOException("Request failed")
     }
 
     companion object {
-        val DEFAULT_PLATFORMS = listOf("Netflix", "PrimeVideo")
+        private const val FALLBACK_BASE_URL = "https://net27.cc"
         val PLATFORMS = listOf("Netflix", "PrimeVideo", "JioHotstar", "SonyLIV", "AppleTV", "Crunchyroll", "MX")
+        val DEFAULT_PLATFORMS = PLATFORMS
         private val HINDI_RAIL = Regex("hindi|bollywood|indian", RegexOption.IGNORE_CASE)
         private const val HOME_CACHE_MS = 5 * 60 * 1000L
         private const val METADATA_CACHE_MS = 10 * 60 * 1000L
